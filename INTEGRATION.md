@@ -81,6 +81,19 @@ Configuration is at `<world>/serverconfig/airdrop_supply_drops-server.toml`. Put
 | `interval_max_seconds` | `1800` | Maximum interval; at least the minimum. |
 | `max_active_events` | `1` | Server-wide event limit; 1–64. |
 | `allowed_dimensions` | `["minecraft:overworld"]` | Dimensions eligible for automatic events. |
+| `smoke_color` | `"#FF0000"` | Smoke color for all crates as `#RRGGBB`; selected by the server and sent in each particle packet. |
+| `airborne_smoke_enabled` | `false` | Enable smoke while crates descend. Landed crates always emit smoke until emptied, broken, or expired. |
+
+For example, green smoke with emission during descent:
+
+```toml
+smoke_color = "#00FF00"
+airborne_smoke_enabled = true
+```
+
+These are global server settings, shared by mineral, food, and custom drops. They are read for each emission, so a server-config reload also updates existing drops. Particles already emitted finish fading with their original color. Clients use the color in the particle packet; local client settings do not select the color. `/reload` reloads datapacks, not these TOML settings; restart the server after editing its config if it does not reload automatically.
+
+Use version 1.0.1 or later on both the server and clients: the colored smoke packet includes RGB data that older clients cannot decode.
 
 The following global defaults can also be overridden in a type's `settings`:
 
@@ -94,7 +107,7 @@ The following global defaults can also be overridden in a type's `settings`:
 
 A narrow distance range or low view distance can prevent finding a landing point. Candidate chunks must already be loaded. If fluid landing is disabled and changed terrain causes contact with fluid during descent, the event and cargo are deleted.
 
-Crates have a fixed 27-slot inventory. Players can only take items out. Automated insertion/extraction is disabled; breaking a crate drops its contents. Aircraft models, flight paths, particle colors, per-player scheduling, and Java/KubeJS lifecycle events are not configurable through this schema.
+Crates have a fixed 27-slot inventory. Players can only take items out. Automated insertion/extraction is disabled; breaking a crate drops its contents. Smoke settings are global and cannot be overridden by this type schema. Aircraft models, flight paths, per-player scheduling, and Java/KubeJS lifecycle events are not configurable through this schema.
 
 ## Loot and exact probabilities
 

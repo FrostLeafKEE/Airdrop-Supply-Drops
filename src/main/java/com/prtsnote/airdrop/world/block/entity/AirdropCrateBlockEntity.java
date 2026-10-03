@@ -53,13 +53,7 @@ public final class AirdropCrateBlockEntity extends BlockEntity implements net.mi
             return;
         }
         if (level instanceof net.minecraft.server.level.ServerLevel serverLevel && level.getGameTime() % 4 == 0) {
-            double x = pos.getX() + 0.5, y = pos.getY() + 1.1, z = pos.getZ() + 0.5;
-            for (var player : serverLevel.players()) {
-                if (player.distanceToSqr(x, y, z) <= 256 * 256) {
-                    serverLevel.sendParticles(player, com.prtsnote.airdrop.registry.ModParticles.RED_SMOKE.get(),
-                            true, x, y, z, 6, 0.18, 0.1, 0.18, 0);
-                }
-            }
+            com.prtsnote.airdrop.server.AirdropSmoke.emit(serverLevel, pos.getX() + 0.5, pos.getY() + 1.1, pos.getZ() + 0.5, false);
         }
     }
 

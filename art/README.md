@@ -13,3 +13,5 @@ powershell -ExecutionPolicy Bypass -File art/build-textures.ps1
 The script uses System.Drawing and nearest-neighbor resizing to write 64×64 block/entity textures and the 32×32 smoke sprite into the resource tree. The release JAR contains the textures; the source archive also includes the atlas and script.
 
 Artwork uses the project's LGPL-3.0-only license. See [LICENSE](../LICENSE).
+
+Configurable smoke uses Minecraft's white `minecraft:generic_7` particle sprite, tinted with RGB data sent by the server. The original red sprite remains as an artwork source but is no longer selected by default. Resource packs can override `assets/airdrop_supply_drops/particles/red_smoke.json`; use a neutral grayscale sprite to preserve configurable colors.
