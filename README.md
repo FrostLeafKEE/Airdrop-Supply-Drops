@@ -47,6 +47,8 @@ The internal mod ID is `airdrop_supply_drops`. If upgrading from an early build 
 
 Server configuration is generated at `<world>/serverconfig/airdrop_supply_drops-server.toml`. Modpacks can provide defaults for new worlds in `defaultconfigs/airdrop_supply_drops-server.toml`.
 
+In 1.0.3+, supply conditions and the server's `allowed_dimensions` accept dimension IDs and shared `#dimension` tags. Groups contain dimension IDs and can be extended by datapacks; the default whitelist still contains only the Overworld. See the [dimension-group example](INTEGRATION.md#shared-dimension-groups-103).
+
 Commands require operator permission level 2 or cheats in singleplayer:
 
 | Command | Purpose |

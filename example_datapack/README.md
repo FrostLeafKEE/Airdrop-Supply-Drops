@@ -13,4 +13,6 @@ Copy this folder into `<world>/datapacks/`, with `pack.mcmeta` at the top level.
 
 Medical supplies demonstrate healing potions, optional automatic conditions, a ten-minute lifetime, no timer reset on singleplayer rejoin, and dry-ground landing. Survival supplies demonstrate a separate one-roll pool with a 1% chance per crate to award one diamond.
 
+Survival supplies use `#example_airdrops:allowed_dimensions`, a shared dimension-ID group containing only `minecraft:overworld` by default. Append dimension IDs in `data/example_airdrops/tags/dimension/allowed_dimensions.json`. To let automatic events follow that group outside the Overworld, also set `allowed_dimensions = ["#example_airdrops:allowed_dimensions"]` in the server config. Requires mod version 1.0.3 or later.
+
 See the [integration guide](../INTEGRATION.md) for fields, loot-table syntax, and commands. Administrator commands bypass automatic conditions. This example is installed separately and is not bundled in the mod JAR.

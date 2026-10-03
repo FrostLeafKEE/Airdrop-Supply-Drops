@@ -231,7 +231,7 @@ public final class AirdropEvents extends SavedData {
         setDirty();
         if (events.size() >= AirdropConfig.MAX_ACTIVE_EVENTS.get()) return;
         var players = server.getPlayerList().getPlayers().stream().filter(player -> player.isAlive() && !player.isSpectator()
-                && AirdropConfig.ALLOWED_DIMENSIONS.get().contains(player.level().dimension().location().toString())).toList();
+                && AirdropConfig.isDimensionAllowed(player.serverLevel())).toList();
         if (players.isEmpty()) return;
         var player = players.get(server.overworld().random.nextInt(players.size()));
         // Conditions are evaluated at the target player; a failed landing search does not reroll the type.
