@@ -61,7 +61,7 @@ Unknown fields are rejected to catch spelling mistakes. JSON does not accept com
 
 | Field | Default | Accepted values |
 | --- | --- | --- |
-| `dimensions` | `[]` | Dimension IDs; any listed ID can match. Empty adds no restriction. |
+| `dimensions` | `[]` | Dimension IDs or dimension tags starting with `#`; any listed entry can match. Empty adds no restriction. |
 | `biomes` | `[]` | Biome IDs or tags starting with `#`; any listed entry can match. |
 | `weather` | `"any"` | `any`, `clear`, `rain`, `thunder`; rain includes thunderstorms. |
 | `time` | `"any"` | `any`, `day`, `night`; day is tick 0–11999, night is 12000–23999. |
@@ -69,6 +69,40 @@ Unknown fields are rejected to catch spelling mistakes. JSON does not accept com
 All supplied fields must match. Conditions use the target player's position and dimension; the landing point can be in a different biome. Weather uses the dimension's global state rather than local precipitation or snow. Types must also satisfy global `allowed_dimensions`.
 
 At each interval the scheduler checks the server-wide event limit, selects a living non-spectator player in an allowed dimension, filters types, chooses one by weight, and searches its distance range for a landing point. Failure triggers a retry after one minute. A landed crate continues occupying its event slot until removed.
+
+### Shared dimension groups (1.0.3+)
+
+Dimension tags group **dimension IDs**, not dimension types. Sharing a dimension type does not make another dimension a member. Both Minecraft branches use `data/<namespace>/tags/dimension/<name>.json`.
+
+For example, create `data/tacz_airdrop/tags/dimension/allowed_dimensions.json`:
+
+```json
+{
+  "replace": false,
+  "values": [
+    "minecraft:overworld",
+    {"id": "othermod:custom_dimension", "required": false}
+  ]
+}
+```
+
+The optional entry is included only when that dimension exists in the loaded world. Other datapacks can append to the same tag with `replace: false`, override earlier members with `replace: true`, or reference another dimension tag with a `#namespace:name` entry.
+
+Each supply type can reference the shared group:
+
+```json
+"conditions": {
+  "dimensions": ["#tacz_airdrop:allowed_dimensions"]
+}
+```
+
+Automatic events must also pass the server whitelist. To let both filters follow the same group, set this in the server TOML:
+
+```toml
+allowed_dimensions = ["#tacz_airdrop:allowed_dimensions"]
+```
+
+The global default remains `["minecraft:overworld"]`. IDs and tags can be mixed in either list. An empty type list adds no restriction; an empty global whitelist allows no automatic events. Missing or empty referenced tags are reported by validation; invalid type definitions are excluded. Tag membership updates after `/reload`; new dimension definitions still require loading the world again. Administrator `spawn` and `crate` commands continue to bypass both filters.
 
 ## Server configuration and type settings
 
@@ -80,7 +114,7 @@ Configuration is at `<world>/serverconfig/airdrop_supply_drops-server.toml`. Put
 | `interval_min_seconds` | `1200` | Minimum interval; positive integer. |
 | `interval_max_seconds` | `1800` | Maximum interval; at least the minimum. |
 | `max_active_events` | `1` | Server-wide event limit; 1–64. |
-| `allowed_dimensions` | `["minecraft:overworld"]` | Dimensions eligible for automatic events. |
+| `allowed_dimensions` | `["minecraft:overworld"]` | Dimension IDs or `#dimension` tags eligible for automatic events. |
 | `smoke_color` | `"#FF0000"` | Smoke color for all crates as `#RRGGBB`; selected by the server and sent in each particle packet. |
 | `airborne_smoke_enabled` | `false` | Enable smoke while crates descend. Landed crates always emit smoke until emptied, broken, or expired. |
 
@@ -141,7 +175,7 @@ Use registered mod IDs in `required_mods`, not display names. A type is skipped 
 
 Definitions are checked at startup and after `/reload`. Invalid types are excluded while valid ones remain available. `/airdrop_supply_drops validate` checks loaded data; it does not reread files. Run `/reload` after editing files.
 
-Checks cover field types/ranges, resolved distances, dimensions, biomes, nonempty biome/item tags, tables, standard item entries, missing subtables, and cycles. Diagnostics identify the type and, when possible, the loot field. If Minecraft rejects a table before this mod can inspect it, check `logs/latest.log` for the parse error. Custom entries/functions/conditions are validated by Minecraft or their owning mod; this command is not a complete third-party validator.
+Checks cover field types/ranges, resolved distances, dimensions, the server dimension whitelist, biomes, nonempty dimension/biome/item tags, tables, standard item entries, missing subtables, and cycles. Diagnostics identify the type, server config, and, when possible, the loot field. If Minecraft rejects a table or tag before this mod can inspect it, check `logs/latest.log` for the parse error. Custom entries/functions/conditions are validated by Minecraft or their owning mod; this command is not a complete third-party validator.
 
 ## Resource packs and persistence
 

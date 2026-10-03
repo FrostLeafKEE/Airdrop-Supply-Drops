@@ -53,11 +53,11 @@ public final class AirdropConfig {
             .defineInRange("max_active_events", 1, 1, 64);
 
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> ALLOWED_DIMENSIONS = BUILDER
-            .comment("Dimension IDs where automatic airdrops may be scheduled.")
+            .comment("Dimension IDs or #dimension tags where automatic airdrops may be scheduled. Tags group dimension IDs, not dimension types.")
             .defineListAllowEmpty(
                     "allowed_dimensions",
                     List.of("minecraft:overworld"),
-                    value -> value instanceof String && ((String) value).matches("[a-z0-9_.-]+:[a-z0-9/._-]+"));
+                    value -> value instanceof String && ((String) value).matches("#?[a-z0-9_.-]+:[a-z0-9/._-]+"));
 
     public static final ForgeConfigSpec SPEC = BUILDER.build();
 
@@ -66,6 +66,11 @@ public final class AirdropConfig {
 
     public static int smokeColor() {
         return Integer.parseInt(SMOKE_COLOR.get().substring(1), 16);
+    }
+
+    public static boolean isDimensionAllowed(net.minecraft.server.level.ServerLevel level) {
+        return ALLOWED_DIMENSIONS.get().stream()
+                .anyMatch(rule -> com.prtsnote.airdrop.data.AirdropRules.matchesDimension(level, rule));
     }
 
     public static void onConfigLoading(ModConfigEvent.Loading event) {

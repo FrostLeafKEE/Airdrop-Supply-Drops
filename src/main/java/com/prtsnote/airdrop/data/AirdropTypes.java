@@ -65,6 +65,11 @@ public final class AirdropTypes extends SimpleJsonResourceReloadListener {
 
     public static java.util.List<String> validate(net.minecraft.server.MinecraftServer server) {
         var errors = new java.util.ArrayList<>(parseErrors);
+        try {
+            AirdropValidation.validateDimensions(server, com.prtsnote.airdrop.config.AirdropConfig.ALLOWED_DIMENSIONS.get(), "allowed_dimensions");
+        } catch (RuntimeException error) {
+            errors.add("serverconfig/airdrop_supply_drops-server.toml: " + error.getMessage());
+        }
         Map<ResourceLocation, Type> valid = new LinkedHashMap<>();
         candidates.forEach((id, type) -> {
             try {

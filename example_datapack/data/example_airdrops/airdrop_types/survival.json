@@ -5,5 +5,8 @@
   },
   "weight": 2,
   "loot_table": "example_airdrops:airdrop/survival",
-  "appearance": "food"
+  "appearance": "food",
+  "conditions": {
+    "dimensions": ["#example_airdrops:allowed_dimensions"]
+  }
 }

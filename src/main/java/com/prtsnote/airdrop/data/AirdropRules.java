@@ -5,6 +5,7 @@ import com.prtsnote.airdrop.config.AirdropConfig;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.TagKey;
@@ -16,7 +17,7 @@ import java.util.Set;
 public final class AirdropRules {
     public record Conditions(List<String> dimensions, List<String> biomes, String weather, String time) {
         public boolean matches(ServerLevel level, BlockPos pos) {
-            if (!dimensions.isEmpty() && !dimensions.contains(level.dimension().location().toString())) return false;
+            if (!dimensions.isEmpty() && dimensions.stream().noneMatch(rule -> matchesDimension(level, rule))) return false;
             var biome = level.getBiome(pos);
             if (!biomes.isEmpty() && biomes.stream().noneMatch(id -> id.startsWith("#")
                     ? biome.is(TagKey.create(Registries.BIOME, new ResourceLocation(id.substring(1))))
@@ -38,6 +39,15 @@ public final class AirdropRules {
             long tick = Math.floorMod(dayTime, 24000L);
             return time.equals("any") || (time.equals("day") ? tick < 12000 : tick >= 12000);
         }
+    }
+
+    /** Dimension tags contain level-stem IDs, never dimension-type IDs. */
+    public static boolean matchesDimension(ServerLevel level, String rule) {
+        if (!rule.startsWith("#")) return rule.equals(level.dimension().location().toString());
+        var dimensions = level.registryAccess().registryOrThrow(Registries.LEVEL_STEM);
+        var key = ResourceKey.create(Registries.LEVEL_STEM, level.dimension().location());
+        var tag = TagKey.create(Registries.LEVEL_STEM, new ResourceLocation(rule.substring(1)));
+        return dimensions.getHolder(key).map(holder -> holder.is(tag)).orElse(false);
     }
 
     public record Overrides(Integer minDistance, Integer maxDistance, Integer lifetimeSeconds,
@@ -79,7 +89,7 @@ public final class AirdropRules {
 
     public static Conditions conditions(JsonObject json) {
         fields(json, Set.of("dimensions", "biomes", "weather", "time"), "conditions");
-        var dimensions = ids(json, "dimensions", false);
+        var dimensions = ids(json, "dimensions", true);
         var biomes = ids(json, "biomes", true);
         String weather = option(json, "weather", Set.of("any", "clear", "rain", "thunder"));
         String time = option(json, "time", Set.of("any", "day", "night"));

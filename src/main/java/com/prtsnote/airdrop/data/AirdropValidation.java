@@ -15,11 +15,7 @@ import java.util.Set;
 /** Validate references after vanilla loot tables and registry tags have finished reloading. */
 public final class AirdropValidation {
     public static void validate(MinecraftServer server, AirdropTypes.Type type) {
-        for (String dimension : type.conditions().dimensions()) {
-            if (server.getLevel(ResourceKey.create(Registries.DIMENSION, new ResourceLocation(dimension))) == null) {
-                throw new IllegalArgumentException("conditions.dimensions: unknown dimension " + dimension);
-            }
-        }
+        validateDimensions(server, type.conditions().dimensions(), "conditions.dimensions");
         var biomes = server.registryAccess().registryOrThrow(Registries.BIOME);
         for (String biome : type.conditions().biomes()) {
             if (biome.startsWith("#")) {
@@ -28,6 +24,20 @@ public final class AirdropValidation {
             } else if (!biomes.containsKey(new ResourceLocation(biome))) throw new IllegalArgumentException("conditions.biomes: unknown biome " + biome);
         }
         loot(server, type.lootTable(), new HashSet<>(), new HashSet<>());
+    }
+
+    public static void validateDimensions(MinecraftServer server, java.util.List<? extends String> rules, String path) {
+        for (String rule : rules) {
+            if (rule.startsWith("#")) {
+                var tag = TagKey.create(Registries.LEVEL_STEM, new ResourceLocation(rule.substring(1)));
+                if (server.registryAccess().registryOrThrow(Registries.LEVEL_STEM).getTag(tag)
+                        .map(values -> values.size() == 0).orElse(true)) {
+                    throw new IllegalArgumentException(path + ": missing or empty dimension tag " + rule);
+                }
+            } else if (server.getLevel(ResourceKey.create(Registries.DIMENSION, new ResourceLocation(rule))) == null) {
+                throw new IllegalArgumentException(path + ": unknown dimension " + rule);
+            }
+        }
     }
 
     private static void loot(MinecraftServer server, ResourceLocation id, Set<ResourceLocation> active, Set<ResourceLocation> checked) {
