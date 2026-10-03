@@ -146,6 +146,7 @@ processResources {
 
 jar {
     from('LICENSE')
+    finalizedBy 'reobfJar'
     manifest {
         attributes([
                 'Specification-Title'     : mod_id,
