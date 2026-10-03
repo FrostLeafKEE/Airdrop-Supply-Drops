@@ -117,12 +117,7 @@ public final class FallingAirdrop extends Entity {
         setDeltaMovement(0, -(0.28 - 0.16 * opening), 0);
         move(MoverType.SELF, getDeltaMovement());
         if (tickCount % 4 == 0) {
-            var smoke = com.prtsnote.airdrop.registry.ModParticles.RED_SMOKE.get();
-            for (var player : level.players()) {
-                if (player.distanceToSqr(this) <= 256 * 256) {
-                    level.sendParticles(player, smoke, true, getX(), getY() + 0.6, getZ(), 6, 0.18, 0.3, 0.18, 0.02);
-                }
-            }
+            com.prtsnote.airdrop.server.AirdropSmoke.emit(level, getX(), getY() + 0.6, getZ(), true);
         }
         BlockPos pos = BlockPos.containing(getX(), getY(), getZ());
         // If restored inside a liquid column, surface above it without replacing liquid blocks.

@@ -40,6 +40,14 @@ public final class AirdropConfig {
             .comment("Allow crates to land above liquid surfaces without replacing the liquid.")
             .define("allow_liquid_landing", true);
 
+    public static final ForgeConfigSpec.ConfigValue<String> SMOKE_COLOR = BUILDER
+            .comment("Smoke color for all supply crates, as a hexadecimal RGB color (#RRGGBB). Sent by the server with each particle.")
+            .define("smoke_color", "#FF0000", value -> value instanceof String color && color.matches("#[0-9a-fA-F]{6}"));
+
+    public static final ForgeConfigSpec.BooleanValue AIRBORNE_SMOKE_ENABLED = BUILDER
+            .comment("Emit smoke while a supply crate is descending. Landed crates always emit smoke until removed.")
+            .define("airborne_smoke_enabled", false);
+
     public static final ForgeConfigSpec.IntValue MAX_ACTIVE_EVENTS = BUILDER
             .comment("Maximum number of active events across the server.")
             .defineInRange("max_active_events", 1, 1, 64);
@@ -54,6 +62,10 @@ public final class AirdropConfig {
     public static final ForgeConfigSpec SPEC = BUILDER.build();
 
     private AirdropConfig() {
+    }
+
+    public static int smokeColor() {
+        return Integer.parseInt(SMOKE_COLOR.get().substring(1), 16);
     }
 
     public static void onConfigLoading(ModConfigEvent.Loading event) {

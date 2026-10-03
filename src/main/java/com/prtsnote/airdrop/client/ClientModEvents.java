@@ -16,7 +16,7 @@ public final class ClientModEvents {
     @SubscribeEvent
     public static void onParticles(net.minecraftforge.client.event.RegisterParticleProvidersEvent event) {
         event.registerSpriteSet(com.prtsnote.airdrop.registry.ModParticles.RED_SMOKE.get(), sprites ->
-                (type, level, x, y, z, dx, dy, dz) -> new RedSmokeParticle(level, x, y, z, sprites));
+                (options, level, x, y, z, dx, dy, dz) -> new RedSmokeParticle(level, x, y, z, sprites, options));
     }
 
     @SubscribeEvent

@@ -6,9 +6,11 @@ import net.minecraft.client.particle.SpriteSet;
 import net.minecraft.client.particle.TextureSheetParticle;
 
 final class RedSmokeParticle extends TextureSheetParticle {
-    RedSmokeParticle(ClientLevel level, double x, double y, double z, SpriteSet sprites) {
+    RedSmokeParticle(ClientLevel level, double x, double y, double z, SpriteSet sprites,
+                     com.prtsnote.airdrop.particle.SmokeParticleOptions options) {
         super(level, x, y, z);
         pickSprite(sprites);
+        setColor(options.red(), options.green(), options.blue());
         lifetime = 65 + random.nextInt(25);
         quadSize = 0.3F;
         xd = (random.nextDouble() - 0.5) * 0.025;
