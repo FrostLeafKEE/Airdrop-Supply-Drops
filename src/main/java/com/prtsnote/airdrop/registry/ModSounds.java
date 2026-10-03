@@ -16,7 +16,8 @@ public final class ModSounds {
     public static final RegistryObject<SoundEvent> WIND = register("descent_wind");
 
     private static RegistryObject<SoundEvent> register(String name) {
-        return SOUNDS.register(name, () -> SoundEvent.createVariableRangeEvent(new ResourceLocation(AirdropMod.MOD_ID, name)));
+        return SOUNDS.register(name, () -> SoundEvent.createVariableRangeEvent(
+                ResourceLocation.fromNamespaceAndPath(AirdropMod.MOD_ID, name)));
     }
     private ModSounds() {}
 }

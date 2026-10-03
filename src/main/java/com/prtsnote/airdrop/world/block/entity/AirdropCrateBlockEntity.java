@@ -6,8 +6,13 @@ import com.prtsnote.airdrop.server.AirdropServer;
 import com.prtsnote.airdrop.server.AirdropEvents;
 import com.prtsnote.airdrop.world.menu.AirdropCrateMenu;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.core.NonNullList;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtOps;
+import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.ComponentSerialization;
 import net.minecraft.world.Container;
 import net.minecraft.world.ContainerHelper;
 import net.minecraft.world.MenuProvider;
@@ -19,7 +24,6 @@ import net.minecraft.world.Containers;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.nbt.CompoundTag;
 import java.util.UUID;
 
 public final class AirdropCrateBlockEntity extends BlockEntity implements net.minecraft.world.WorldlyContainer, MenuProvider {
@@ -133,23 +137,25 @@ public final class AirdropCrateBlockEntity extends BlockEntity implements net.mi
     }
 
     @Override
-    protected void saveAdditional(CompoundTag tag) {
-        super.saveAdditional(tag);
-        ContainerHelper.saveAllItems(tag, items);
+    protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
+        super.saveAdditional(tag, registries);
+        ContainerHelper.saveAllItems(tag, items, registries);
         tag.putInt("remaining_ticks", getRemainingTicks());
         tag.putBoolean("timer_started", timerStarted);
         tag.putLong("expires_at", expiresAt);
         if (settings != null) tag.put("airdrop_settings", settings.save());
         if (sessionId != null) tag.putUUID("session_id", sessionId);
         if (eventId != null) tag.putUUID("event_id", eventId);
-        tag.putString("display_name", Component.Serializer.toJson(displayName));
+        tag.put("display_name", ComponentSerialization.CODEC
+                .encodeStart(registries.createSerializationContext(NbtOps.INSTANCE), displayName)
+                .getOrThrow());
     }
 
     @Override
-    public void load(CompoundTag tag) {
-        super.load(tag);
+    protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
+        super.loadAdditional(tag, registries);
         items.clear();
-        ContainerHelper.loadAllItems(tag, items);
+        ContainerHelper.loadAllItems(tag, items, registries);
         remainingTicks = tag.contains("remaining_ticks") ? tag.getInt("remaining_ticks") : LIFETIME_TICKS;
         timerStarted = tag.getBoolean("timer_started");
         expiresAt = tag.contains("expires_at") ? tag.getLong("expires_at") : -1;
@@ -157,7 +163,9 @@ public final class AirdropCrateBlockEntity extends BlockEntity implements net.mi
         sessionId = tag.hasUUID("session_id") ? tag.getUUID("session_id") : null;
         eventId = tag.hasUUID("event_id") ? tag.getUUID("event_id") : null;
         if (tag.contains("display_name")) {
-            Component name = Component.Serializer.fromJson(tag.getString("display_name"));
+            Component name = ComponentSerialization.CODEC
+                    .parse(registries.createSerializationContext(NbtOps.INSTANCE), tag.get("display_name"))
+                    .result().orElse(null);
             if (name != null) displayName = name;
         }
     }

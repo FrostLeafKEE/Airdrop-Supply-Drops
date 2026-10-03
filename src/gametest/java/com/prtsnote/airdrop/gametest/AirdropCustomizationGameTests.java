@@ -1,4 +1,4 @@
-package com.prtsnote.airdrop;
+package com.prtsnote.airdrop.gametest;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -20,26 +20,33 @@ import net.minecraft.world.level.storage.loot.parameters.LootContextParamSets;
 import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.gametest.GameTestHolder;
-import net.minecraftforge.gametest.PrefixGameTestTemplate;
 
 @GameTestHolder("airdrop_supply_drops")
-@PrefixGameTestTemplate(false)
 public final class AirdropCustomizationGameTests {
-    @GameTest(template = "empty", batch = "reload", timeoutTicks = 1200)
+    @GameTest(template = "airdrop_supply_drops:empty", batch = "reload", timeoutTicks = 1200)
     public static void realDatapackReloadPreservesCargo(GameTestHelper helper) throws java.io.IOException {
         var server = helper.getLevel().getServer();
         var directory = server.getWorldPath(net.minecraft.world.level.storage.LevelResource.DATAPACK_DIR)
                 .resolve("airdrop_example/data/example_airdrops/airdrop_types");
         var file = directory.resolve("_reload_test.json");
         var invalid = directory.resolve("_invalid_test.json");
+        var lootFile = directory.getParent().resolve("loot_table/airdrop/_reload_reference_test.json");
         helper.assertTrue(java.nio.file.Files.isDirectory(directory) && !java.nio.file.Files.exists(file) && !java.nio.file.Files.exists(invalid),
                 "Dedicated example test pack and unused probe paths are required");
+        helper.assertTrue(!java.nio.file.Files.exists(lootFile), "Loot probe path must be unused");
         var selected = java.util.List.copyOf(server.getPackRepository().getSelectedIds());
         var json = definition(); json.add("settings", JsonParser.parseString("{\"landed_lifetime_seconds\":2}"));
+        json.addProperty("loot_table", "example_airdrops:airdrop/_reload_reference_test");
+        // Unknown metadata must not override the 1.21.1 loot_table entry's actual value field.
+        java.nio.file.Files.writeString(lootFile, """
+                {"type":"minecraft:chest","pools":[{"rolls":1,"entries":[
+                  {"type":"minecraft:loot_table","value":"airdrop_supply_drops:airdrop/mineral",
+                   "name":"missing:ignored_metadata"}]}]}
+                """);
         java.nio.file.Files.writeString(file, json.toString());
         var frozen = new java.util.concurrent.atomic.AtomicReference<CompoundTag>();
         server.reloadResources(selected).thenRunAsync(() -> {
-            var type = AirdropTypes.all().get(new ResourceLocation("example_airdrops:_reload_test"));
+            var type = AirdropTypes.all().get(ResourceLocation.parse("example_airdrops:_reload_test"));
             helper.assertTrue(type != null && type.settings().resolve().lifetimeSeconds() == 2, "Reload must read the new type file");
             var drop = ModEntities.FALLING_AIRDROP.get().create(helper.getLevel());
             helper.assertTrue(drop.prepare(type), "Reloaded type must generate cargo");
@@ -51,9 +58,9 @@ public final class AirdropCustomizationGameTests {
                 java.nio.file.Files.writeString(invalid, bad.toString());
             } catch (java.io.IOException error) { throw new java.io.UncheckedIOException(error); }
         }, server).thenCompose(unused -> server.reloadResources(selected)).thenRunAsync(() -> {
-            var type = AirdropTypes.all().get(new ResourceLocation("example_airdrops:_reload_test"));
+            var type = AirdropTypes.all().get(ResourceLocation.parse("example_airdrops:_reload_test"));
             helper.assertTrue(type.settings().resolve().lifetimeSeconds() == 900, "Changed settings must apply to new drops");
-            helper.assertTrue(!AirdropTypes.all().containsKey(new ResourceLocation("example_airdrops:_invalid_test")), "Post-reload validation must exclude invalid references");
+            helper.assertTrue(!AirdropTypes.all().containsKey(ResourceLocation.parse("example_airdrops:_invalid_test")), "Post-reload validation must exclude invalid references");
             helper.assertTrue(AirdropTypes.diagnostics().stream().anyMatch(error -> error.contains("_invalid_test.json") && error.contains("missing:reload_probe")),
                     "Post-reload diagnostic must identify the source file and missing table");
             var restored = ModEntities.FALLING_AIRDROP.get().create(helper.getLevel()); restored.load(frozen.get());
@@ -63,6 +70,7 @@ public final class AirdropCustomizationGameTests {
             try {
                 java.nio.file.Files.deleteIfExists(file);
                 java.nio.file.Files.deleteIfExists(invalid);
+                java.nio.file.Files.deleteIfExists(lootFile);
             } catch (java.io.IOException cleanup) { throw new java.io.UncheckedIOException(cleanup); }
             return error;
         }, server).thenCompose(error -> server.reloadResources(selected).thenRunAsync(() -> {
@@ -81,7 +89,7 @@ public final class AirdropCustomizationGameTests {
                  "loot_table":"airdrop_supply_drops:airdrop/mineral","appearance":"mineral"}
                 """).getAsJsonObject();
     }
-    private static AirdropTypes.Type parse(JsonObject json) { return AirdropTypes.parse(new ResourceLocation("airdrop_supply_drops:test"), json); }
+    private static AirdropTypes.Type parse(JsonObject json) { return AirdropTypes.parse(ResourceLocation.parse("airdrop_supply_drops:test"), json); }
     private static void rejects(GameTestHelper helper, Runnable action, String field) {
         try { action.run(); } catch (RuntimeException error) {
             helper.assertTrue(error.getMessage().contains(field), "Diagnostic must identify " + field + ": " + error.getMessage());
@@ -90,7 +98,7 @@ public final class AirdropCustomizationGameTests {
         helper.fail("Expected rejection for " + field);
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "airdrop_supply_drops:empty")
     public static void legacyDefaultsAndInvalidOverrides(GameTestHelper helper) {
         var old = parse(definition());
         helper.assertTrue(old.settings().resolve().equals(AirdropRules.defaults()), "Version 1 files must inherit defaults");
@@ -105,7 +113,7 @@ public final class AirdropCustomizationGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "airdrop_supply_drops:empty")
     public static void conditionsAndOptionalMods(GameTestHelper helper) {
         var level = helper.getLevel(); var pos = helper.absolutePos(BlockPos.ZERO);
         var biome = level.getBiome(pos).unwrapKey().orElseThrow().location().toString();
@@ -127,7 +135,7 @@ public final class AirdropCustomizationGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "airdrop_supply_drops:empty")
     public static void referenceValidation(GameTestHelper helper) {
         helper.assertTrue(AirdropTypes.validate(helper.getLevel().getServer()).isEmpty(), "Built-in and example references must validate");
         var json = definition(); json.addProperty("loot_table", "missing:table");
@@ -138,7 +146,7 @@ public final class AirdropCustomizationGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 60)
+    @GameTest(template = "airdrop_supply_drops:empty", timeoutTicks = 60)
     public static void customLifetimeAndCargoSnapshot(GameTestHelper helper) {
         var json = definition(); json.add("settings", JsonParser.parseString("{\"landed_lifetime_seconds\":2,\"reset_on_rejoin\":false}"));
         var type = parse(json);
@@ -147,7 +155,7 @@ public final class AirdropCustomizationGameTests {
         helper.assertTrue(AirdropServer.placeCrate(helper.getLevel(), pos, type), "Customized crate must place");
         var crate = (AirdropCrateBlockEntity) helper.getLevel().getBlockEntity(pos);
         helper.assertTrue(crate.getRemainingTicks() == 40, "Crate must inherit type lifetime");
-        var saved = crate.saveWithFullMetadata();
+        var saved = crate.saveWithFullMetadata(helper.getLevel().registryAccess());
         var drop = ModEntities.FALLING_AIRDROP.get().create(helper.getLevel()); drop.setPos(Vec3.atCenterOf(pos.above(8)));
         helper.assertTrue(drop.prepare(type), "Cargo must prepare");
         var cargo = drop.saveWithoutId(new CompoundTag());
@@ -157,9 +165,9 @@ public final class AirdropCustomizationGameTests {
         helper.assertTrue(restored.saveWithoutId(new CompoundTag()).getCompound("airdrop_settings").getInt("lifetime_seconds") == 2,
                 "Saved cargo must not consult changed definitions");
         helper.runAfterDelay(5, () -> {
-            crate.load(saved); crate.onLoad();
+            crate.loadWithComponents(saved, helper.getLevel().registryAccess()); crate.onLoad();
             helper.assertTrue(crate.getRemainingTicks() <= 35, "NBT reload must preserve custom deadline");
-            helper.assertTrue(!crate.saveWithFullMetadata().getCompound("airdrop_settings").getBoolean("reset_on_rejoin"), "Reset opt-out must persist");
+            helper.assertTrue(!crate.saveWithFullMetadata(helper.getLevel().registryAccess()).getCompound("airdrop_settings").getBoolean("reset_on_rejoin"), "Reset opt-out must persist");
         });
         helper.runAfterDelay(42, () -> {
             helper.assertTrue(helper.getLevel().getBlockEntity(pos) == null, "Custom two-second crate must expire");
@@ -167,9 +175,9 @@ public final class AirdropCustomizationGameTests {
         });
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "airdrop_supply_drops:empty")
     public static void independentOnePercentBonus(GameTestHelper helper) {
-        var table = helper.getLevel().getServer().getLootData().getLootTable(new ResourceLocation("example_airdrops:airdrop/survival"));
+        var table = com.prtsnote.airdrop.data.AirdropValidation.lootTable(helper.getLevel().getServer(), ResourceLocation.parse("example_airdrops:airdrop/survival"));
         var params = new LootParams.Builder(helper.getLevel()).withParameter(LootContextParams.ORIGIN, Vec3.ZERO).create(LootContextParamSets.CHEST);
         int successes = 0;
         for (int seed = 1; seed <= 10000; seed++) {
@@ -181,7 +189,7 @@ public final class AirdropCustomizationGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "airdrop_supply_drops:empty")
     public static void disallowedLiquidCancelsDrop(GameTestHelper helper) {
         var json = definition(); json.add("settings", JsonParser.parseString("{\"allow_liquid_landing\":false}"));
         var pos = helper.absolutePos(new BlockPos(2, 2, 2));

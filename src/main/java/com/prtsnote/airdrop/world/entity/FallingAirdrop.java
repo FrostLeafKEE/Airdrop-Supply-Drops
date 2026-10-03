@@ -6,11 +6,12 @@ import com.prtsnote.airdrop.registry.ModBlocks;
 import com.prtsnote.airdrop.world.block.entity.AirdropCrateBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.core.NonNullList;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtOps;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.protocol.Packet;
-import net.minecraft.network.protocol.game.ClientGamePacketListener;
+import net.minecraft.network.chat.ComponentSerialization;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
@@ -29,7 +30,6 @@ import net.minecraft.world.level.storage.loot.LootTable;
 import net.minecraft.world.level.storage.loot.parameters.LootContextParamSets;
 import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.network.NetworkHooks;
 
 public final class FallingAirdrop extends Entity {
     @Override public boolean shouldRenderAtSqrDistance(double distance) { return distance < 256 * 256; }
@@ -53,7 +53,7 @@ public final class FallingAirdrop extends Entity {
 
     public boolean prepare(AirdropTypes.Type type) {
         ServerLevel level = (ServerLevel) level();
-        LootTable table = level.getServer().getLootData().getLootTable(type.lootTable());
+        LootTable table = com.prtsnote.airdrop.data.AirdropValidation.lootTable(level.getServer(), type.lootTable());
         if (table == LootTable.EMPTY) return false;
         // Freeze the loot at release; /reload must not change an existing drop.
         var inventory = new net.minecraft.world.SimpleContainer(27);
@@ -67,9 +67,9 @@ public final class FallingAirdrop extends Entity {
         return true;
     }
 
-    @Override protected void defineSynchedData() {
-        entityData.define(FOOD, false);
-        entityData.define(DEPLOYMENT, 0);
+    @Override protected void defineSynchedData(SynchedEntityData.Builder builder) {
+        builder.define(FOOD, false);
+        builder.define(DEPLOYMENT, 0);
     }
 
     @Override
@@ -150,10 +150,15 @@ public final class FallingAirdrop extends Entity {
         discard();
     }
 
+    private HolderLookup.Provider registries() {
+        return level().registryAccess();
+    }
+
     @Override
     protected void addAdditionalSaveData(CompoundTag tag) {
-        ContainerHelper.saveAllItems(tag, contents);
-        tag.putString("title", Component.Serializer.toJson(title));
+        ContainerHelper.saveAllItems(tag, contents, registries());
+        tag.put("title", ComponentSerialization.CODEC
+                .encodeStart(registries().createSerializationContext(NbtOps.INSTANCE), title).getOrThrow());
         tag.putLong("expires_at", expiresAt);
         tag.putBoolean("food", isFood());
         tag.putInt("deployment", deploymentTicks());
@@ -163,9 +168,12 @@ public final class FallingAirdrop extends Entity {
 
     @Override
     protected void readAdditionalSaveData(CompoundTag tag) {
+        HolderLookup.Provider registries = registries();
         contents.clear();
-        ContainerHelper.loadAllItems(tag, contents);
-        Component savedTitle = Component.Serializer.fromJson(tag.getString("title"));
+        ContainerHelper.loadAllItems(tag, contents, registries);
+        Component savedTitle = ComponentSerialization.CODEC
+                .parse(registries.createSerializationContext(NbtOps.INSTANCE), tag.get("title"))
+                .result().orElse(null);
         if (savedTitle != null) title = savedTitle;
         expiresAt = tag.getLong("expires_at");
         if (!level().isClientSide) settings = com.prtsnote.airdrop.data.AirdropRules.Settings.load(tag.getCompound("airdrop_settings"));
@@ -173,6 +181,4 @@ public final class FallingAirdrop extends Entity {
         entityData.set(DEPLOYMENT, Math.max(0, Math.min(30, tag.getInt("deployment"))));
         eventId = tag.hasUUID("event_id") ? tag.getUUID("event_id") : null;
     }
-
-    @Override public Packet<ClientGamePacketListener> getAddEntityPacket() { return NetworkHooks.getEntitySpawningPacket(this); }
 }

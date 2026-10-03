@@ -23,9 +23,16 @@ import java.util.List;
 public final class AirdropCrateBlock extends BaseEntityBlock {
     public static final net.minecraft.world.level.block.state.properties.BooleanProperty FOOD =
             net.minecraft.world.level.block.state.properties.BooleanProperty.create("food");
+    public static final com.mojang.serialization.MapCodec<AirdropCrateBlock> CODEC = simpleCodec(AirdropCrateBlock::new);
+
     public AirdropCrateBlock(Properties properties) {
         super(properties);
         registerDefaultState(stateDefinition.any().setValue(FOOD, false));
+    }
+
+    @Override
+    protected com.mojang.serialization.MapCodec<? extends BaseEntityBlock> codec() {
+        return CODEC;
     }
 
     @Override
@@ -34,7 +41,7 @@ public final class AirdropCrateBlock extends BaseEntityBlock {
     }
 
     @Override
-    public RenderShape getRenderShape(BlockState state) {
+    protected RenderShape getRenderShape(BlockState state) {
         return RenderShape.MODEL;
     }
 
@@ -51,13 +58,13 @@ public final class AirdropCrateBlock extends BaseEntityBlock {
                 : createTickerHelper(blockEntityType, ModBlockEntities.AIRDROP_CRATE.get(), AirdropCrateBlockEntity::serverTick);
     }
 
+    // Since 1.20.5 the former use() is split: useItemOn runs with an item in hand, useWithoutItem with an empty hand.
+    // Both must open the crate, otherwise holding any item would silently block claiming supplies.
     @Override
-    public InteractionResult use(
-            BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (level.isClientSide) {
             return InteractionResult.SUCCESS;
         }
-
         BlockEntity blockEntity = level.getBlockEntity(pos);
         if (blockEntity instanceof AirdropCrateBlockEntity crate) {
             if (crate.isExpired()) {
@@ -71,23 +78,40 @@ public final class AirdropCrateBlock extends BaseEntityBlock {
     }
 
     @Override
-    public void playerWillDestroy(Level level, BlockPos pos, BlockState state, Player player) {
+    protected net.minecraft.world.ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+        if (level.isClientSide) {
+            return net.minecraft.world.ItemInteractionResult.SUCCESS;
+        }
+        BlockEntity blockEntity = level.getBlockEntity(pos);
+        if (blockEntity instanceof AirdropCrateBlockEntity crate) {
+            if (crate.isExpired()) {
+                level.removeBlock(pos, false);
+                return net.minecraft.world.ItemInteractionResult.CONSUME;
+            }
+            player.openMenu(crate);
+            return net.minecraft.world.ItemInteractionResult.CONSUME;
+        }
+        return net.minecraft.world.ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+    }
+
+    @Override
+    public BlockState playerWillDestroy(Level level, BlockPos pos, BlockState state, Player player) {
         if (!level.isClientSide) {
             BlockEntity blockEntity = level.getBlockEntity(pos);
             if (blockEntity instanceof AirdropCrateBlockEntity crate) {
                 crate.dropContents(level, pos);
             }
         }
-        super.playerWillDestroy(level, pos, state, player);
+        return super.playerWillDestroy(level, pos, state, player);
     }
 
     @Override
-    public List<ItemStack> getDrops(BlockState state, LootParams.Builder builder) {
+    protected List<ItemStack> getDrops(BlockState state, LootParams.Builder builder) {
         return List.of();
     }
 
     @Override
-    public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean isMoving) {
+    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean isMoving) {
         if (state.getBlock() != newState.getBlock()) {
             BlockEntity blockEntity = level.getBlockEntity(pos);
             if (!level.isClientSide && blockEntity instanceof AirdropCrateBlockEntity crate && crate.eventId() != null) {
@@ -101,7 +125,7 @@ public final class AirdropCrateBlock extends BaseEntityBlock {
     }
 
     @Override
-    public boolean hasAnalogOutputSignal(BlockState state) {
+    protected boolean hasAnalogOutputSignal(BlockState state) {
         return false;
     }
 }

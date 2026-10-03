@@ -4,8 +4,6 @@ import com.prtsnote.airdrop.server.AirdropEvents;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.protocol.Packet;
-import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
@@ -14,7 +12,6 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.network.NetworkHooks;
 import java.util.UUID;
 
 /** Anchored in the landing chunk; the renderer projects the flight path. */
@@ -28,7 +25,7 @@ public final class AirdropPlane extends Entity {
         noPhysics = true;
         setNoGravity(true);
     }
-    @Override protected void defineSynchedData() { entityData.define(AGE, 0); entityData.define(HEADING, 0F); }
+    @Override protected void defineSynchedData(SynchedEntityData.Builder builder) { builder.define(AGE, 0); builder.define(HEADING, 0F); }
     public int flightAge() { return entityData.get(AGE); }
     public float heading() { return entityData.get(HEADING); }
     public double visualFlightAge(float partialTick) {
@@ -103,5 +100,6 @@ public final class AirdropPlane extends Entity {
         eventId = tag.hasUUID("event_id") ? tag.getUUID("event_id") : null;
         entityData.set(AGE, tag.getInt("flight_age")); entityData.set(HEADING, tag.getFloat("heading"));
     }
-    @Override public Packet<ClientGamePacketListener> getAddEntityPacket() { return NetworkHooks.getEntitySpawningPacket(this); }
+    // Vanilla entity tracking sends non-default synced data in a separate metadata packet
+    // alongside the spawn packet; no custom spawn payload is needed.
 }

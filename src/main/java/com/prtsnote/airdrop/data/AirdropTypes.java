@@ -4,7 +4,9 @@ import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.mojang.logging.LogUtils;
+import com.mojang.serialization.JsonOps;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.ComponentSerialization;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener;
@@ -50,9 +52,9 @@ public final class AirdropTypes extends SimpleJsonResourceReloadListener {
         if (!appearance.equals("mineral") && !appearance.equals("food")) {
             throw new IllegalArgumentException("appearance must be mineral or food");
         }
-        Component name = Component.Serializer.fromJson(json.get("display_name"));
-        if (name == null) throw new IllegalArgumentException("Missing display_name");
-        return new Type(id, name, weight, new ResourceLocation(GsonHelper.getAsString(json, "loot_table")), appearance,
+        Component name = ComponentSerialization.CODEC.parse(JsonOps.INSTANCE, json.get("display_name"))
+                .result().orElseThrow(() -> new IllegalArgumentException("Invalid display_name"));
+        return new Type(id, name, weight, ResourceLocation.parse(GsonHelper.getAsString(json, "loot_table")), appearance,
                 AirdropRules.conditions(json.has("conditions") ? GsonHelper.getAsJsonObject(json, "conditions") : new JsonObject()),
                 AirdropRules.overrides(json.has("settings") ? GsonHelper.getAsJsonObject(json, "settings") : new JsonObject()));
     }

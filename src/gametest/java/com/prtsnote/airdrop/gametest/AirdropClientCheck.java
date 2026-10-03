@@ -1,4 +1,4 @@
-package com.prtsnote.airdrop;
+package com.prtsnote.airdrop.gametest;
 
 import com.mojang.blaze3d.platform.Lighting;
 import com.mojang.logging.LogUtils;

@@ -2,7 +2,7 @@ plugins {
     id 'eclipse'
     id 'idea'
     id 'maven-publish'
-    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+    id 'net.minecraftforge.gradle' version '[6.0.24,6.2)'
 }
 
 version = mod_version
@@ -11,25 +11,37 @@ base {
     archivesName = mod_id
 }
 
-java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
-sourceSets {
-    gameTest {
-        java.srcDir 'src/gametest/java'
-        resources.srcDir layout.buildDirectory.dir('generated/gametestResources')
-        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
-        runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
-    }
+// GameTest sources compile into the main source set: the 1.21.1 modular launch
+// (bootstrap 2.1.x) builds one module per classpath directory, and a separate
+// resources directory becomes a classes-less mod file whose annotation scan
+// finds no @Mod class, failing mod loading. Resources are therefore laid out
+// together with classes, matching the shipped jar structure. Test classes and
+// the test structure are excluded from the release jar below.
+sourceSets.main {
+    java.srcDir 'src/gametest/java'
+    resources.srcDir layout.buildDirectory.dir('generated/gametestResources')
+    output.resourcesDir = file("$buildDir/classes/java/main")
+}
+
+tasks.register('compileGameTestJava') {
+    group = 'build'
+    description = 'Compiles the gametest sources (part of main on 1.21.1; kept for command compatibility).'
+    dependsOn tasks.named('compileJava')
 }
 
 minecraft {
     mappings channel: mapping_channel, version: mapping_version
 
+    // Official mappings are used at runtime since 1.20.2; no reobfuscation step exists any more.
+    reobf = false
+
     copyIdeResources = true
 
     runs {
         configureEach {
-            workingDirectory project.file('run')
+            workingDirectory project.file('run-1.21.1')
             property 'forge.logging.markers', 'REGISTRIES'
             property 'forge.logging.console.level', 'info'
 
@@ -43,19 +55,16 @@ minecraft {
         client {
             property 'forge.enabledGameTestNamespaces', mod_id
             if (project.hasProperty('restartCheck')) {
-                workingDirectory project.file('run-clientcheck')
+                workingDirectory project.file('run-clientcheck-1.21.1')
                 property 'airdrop.restartCheck', project.property('restartCheck')
-                mods { "${mod_id}" { source sourceSets.gameTest } }
             }
             if (project.hasProperty('worldCheck')) {
-                workingDirectory project.file('run-clientcheck')
+                workingDirectory project.file('run-clientcheck-1.21.1')
                 property 'airdrop.worldCheck', 'true'
-                mods { "${mod_id}" { source sourceSets.gameTest } }
             }
             if (project.hasProperty('clientCheck')) {
-                workingDirectory project.file('run-clientcheck')
+                workingDirectory project.file('run-clientcheck-1.21.1')
                 property 'airdrop.clientCheck', 'true'
-                mods { "${mod_id}" { source sourceSets.gameTest } }
             }
         }
 
@@ -65,15 +74,12 @@ minecraft {
         }
 
         gameTestServer {
-            workingDirectory project.file('run-gametest-supply')
+            workingDirectory project.file('run-gametest-supply-1.21.1')
             property 'forge.enabledGameTestNamespaces', mod_id
-            mods {
-                "${mod_id}" { source sourceSets.gameTest }
-            }
         }
 
         data {
-            workingDirectory project.file('run')
+            workingDirectory project.file('run-data-1.21.1')
             args '--mod', mod_id, '--all', '--output', file('src/generated/resources/'), '--existing', file('src/main/resources/')
         }
     }
@@ -81,14 +87,14 @@ minecraft {
 
 // A separate empty test structure; neither tests nor this fixture ship in the mod jar.
 tasks.register('generateGameTestStructure') {
-    def target = layout.buildDirectory.file('generated/gametestResources/data/airdrop_supply_drops/structures/empty.nbt')
+    def target = layout.buildDirectory.file('generated/gametestResources/data/airdrop_supply_drops/structure/empty.nbt')
     outputs.file(target)
     doLast {
         def file = target.get().asFile
         file.parentFile.mkdirs()
         new DataOutputStream(new java.util.zip.GZIPOutputStream(new FileOutputStream(file))).withCloseable { out ->
             out.writeByte(10); out.writeUTF('')
-            out.writeByte(3); out.writeUTF('DataVersion'); out.writeInt(3465)
+            out.writeByte(3); out.writeUTF('DataVersion'); out.writeInt(3955)
             out.writeByte(9); out.writeUTF('size'); out.writeByte(3); out.writeInt(3)
             3.times { out.writeInt(5) }
             out.writeByte(9); out.writeUTF('palette'); out.writeByte(10); out.writeInt(1)
@@ -100,10 +106,10 @@ tasks.register('generateGameTestStructure') {
         }
     }
 }
-tasks.named('processGameTestResources').configure { dependsOn 'generateGameTestStructure' }
+tasks.named('processResources').configure { dependsOn 'generateGameTestStructure' }
 tasks.register('installExampleGameTestPack', Copy) {
     from 'example_datapack'
-    into 'run-gametest-supply/world/datapacks/airdrop_example'
+    into 'run-gametest-supply-1.21.1/world/datapacks/airdrop_example'
 }
 tasks.matching { it.name == 'runGameTestServer' }.configureEach {
     dependsOn 'installExampleGameTestPack'
@@ -146,7 +152,9 @@ processResources {
 
 jar {
     from('LICENSE')
-    finalizedBy 'reobfJar'
+    // GameTest/check sources and fixtures are development-only; never ship them.
+    exclude 'com/prtsnote/airdrop/gametest/**'
+    exclude 'data/airdrop_supply_drops/structure/empty.nbt'
     manifest {
         attributes([
                 'Specification-Title'     : mod_id,

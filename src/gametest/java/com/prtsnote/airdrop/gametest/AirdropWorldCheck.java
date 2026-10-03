@@ -1,4 +1,4 @@
-package com.prtsnote.airdrop;
+package com.prtsnote.airdrop.gametest;
 
 import com.mojang.logging.LogUtils;
 import com.prtsnote.airdrop.client.AircraftEngineSound;
@@ -61,7 +61,7 @@ public final class AirdropWorldCheck {
                 var player = server.getPlayerList().getPlayers().get(0);
                 player.setGameMode(GameType.SPECTATOR);
                 player.teleportTo(level, 15, 245, 15, 0, 0);
-                eventId = manager.begin(level, GROUND, AirdropTypes.all().get(new ResourceLocation("airdrop_supply_drops:mineral")));
+                eventId = manager.begin(level, GROUND, AirdropTypes.all().get(ResourceLocation.parse("airdrop_supply_drops:mineral")));
                 if (eventId == null) throw new IllegalStateException("Cannot start preview event");
                 prepared = true;
             }
@@ -91,6 +91,10 @@ public final class AirdropWorldCheck {
             if (++ticks > 6000) throw new IllegalStateException("World check timed out: " + client.screen);
             if (failure != null) throw new IllegalStateException(failure);
             if (!opening && client.getOverlay() == null && client.screen instanceof TitleScreen) {
+                if (client.options.getSoundSourceVolume(net.minecraft.sounds.SoundSource.MASTER) == 0
+                        || client.options.getSoundSourceVolume(net.minecraft.sounds.SoundSource.AMBIENT) == 0) {
+                    throw new IllegalStateException("World sound check requires non-zero master and ambient volume");
+                }
                 for (var entry : ModSounds.SOUNDS.getEntries()) {
                     var sounds = client.getSoundManager().getSoundEvent(entry.getId());
                     if (sounds == null || sounds.getWeight() == 0) throw new IllegalStateException("Missing sound " + entry.getId());
@@ -98,7 +102,7 @@ public final class AirdropWorldCheck {
                     if (client.getResourceManager().getResource(sound.getPath()).isEmpty()) throw new IllegalStateException("Missing audio file " + sound.getPath());
                 }
                 opening = true;
-                client.createWorldOpenFlows().loadLevel(new TitleScreen(), "airdrop-worldcheck");
+                client.createWorldOpenFlows().openWorld("airdrop-worldcheck", () -> client.setScreen(new TitleScreen()));
             }
             if (client.level == null || client.player == null) return;
             client.options.hideGui = true;

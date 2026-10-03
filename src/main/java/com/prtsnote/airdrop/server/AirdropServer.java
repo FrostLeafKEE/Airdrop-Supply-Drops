@@ -99,7 +99,7 @@ public final class AirdropServer {
                                 source.sendFailure(Component.translatable("message.airdrop_supply_drops.limit_reached", activeCount, AirdropConfig.MAX_ACTIVE_EVENTS.get()));
                                 return 0;
                             }
-                            if (level.getServer().getLootData().getLootTable(type.lootTable()) == LootTable.EMPTY) {
+                            if (com.prtsnote.airdrop.data.AirdropValidation.lootTable(level.getServer(), type.lootTable()) == LootTable.EMPTY) {
                                 source.sendFailure(Component.translatable("message.airdrop_supply_drops.invalid_loot", type.lootTable().toString()));
                                 return 0;
                             }
@@ -172,7 +172,7 @@ public final class AirdropServer {
                 || !level.getFluidState(pos).isEmpty() || level.getBlockEntity(pos) != null
                 || (level.getFluidState(pos.below()).isEmpty()
                 && !level.getBlockState(pos.below()).isFaceSturdy(level, pos.below(), Direction.UP))) return false;
-        LootTable table = level.getServer().getLootData().getLootTable(type.lootTable());
+        LootTable table = com.prtsnote.airdrop.data.AirdropValidation.lootTable(level.getServer(), type.lootTable());
         if (table == LootTable.EMPTY) return false;
         if (!level.setBlock(pos, ModBlocks.AIRDROP_CRATE.get().defaultBlockState()
                 .setValue(com.prtsnote.airdrop.world.block.AirdropCrateBlock.FOOD, type.appearance().equals("food")), 3)) return false;

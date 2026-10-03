@@ -1,4 +1,4 @@
-package com.prtsnote.airdrop;
+package com.prtsnote.airdrop.gametest;
 
 import com.mojang.logging.LogUtils;
 import com.prtsnote.airdrop.data.AirdropTypes;
@@ -35,7 +35,7 @@ public final class AirdropRestartCheck {
     private static CompoundTag inventory(AirdropCrateBlockEntity crate) {
         var items = net.minecraft.core.NonNullList.withSize(27, net.minecraft.world.item.ItemStack.EMPTY);
         for (int i = 0; i < 27; i++) items.set(i, crate.getItem(i).copy());
-        return net.minecraft.world.ContainerHelper.saveAllItems(new CompoundTag(), items);
+        return net.minecraft.world.ContainerHelper.saveAllItems(new CompoundTag(), items, crate.getLevel().registryAccess());
     }
 
     @SubscribeEvent public static void serverTick(TickEvent.ServerTickEvent tick) {
@@ -55,7 +55,7 @@ public final class AirdropRestartCheck {
                 player.teleportTo(level, 8, 185, 8, 0, 0);
                 if (phase.equals("seed")) {
                     for (var previous : manager.all()) manager.cancel(server, previous.id);
-                    var type = AirdropTypes.all().get(new ResourceLocation("airdrop_supply_drops:mineral"));
+                    var type = AirdropTypes.all().get(ResourceLocation.parse("airdrop_supply_drops:mineral"));
                     for (var pos : new BlockPos[]{NEAR, DEBUG, FAR}) {
                         level.setBlockAndUpdate(pos, Blocks.AIR.defaultBlockState());
                         level.setBlockAndUpdate(pos.below(), Blocks.STONE.defaultBlockState());
@@ -75,11 +75,11 @@ public final class AirdropRestartCheck {
                     proof.put("near", inventory(crate));
                     proof.put("debug", inventory((AirdropCrateBlockEntity) level.getBlockEntity(DEBUG)));
                     proof.put("far", inventory((AirdropCrateBlockEntity) level.getBlockEntity(FAR)));
-                    NbtIo.writeCompressed(proof, PROOF);
+                    NbtIo.writeCompressed(proof, PROOF.toPath());
                     LogUtils.getLogger().info("AIRDROP_RESTART_SEED_READY: 3 crates saved with 1200 ticks; session={}", session.id());
                     done = true;
                 } else {
-                    proof = NbtIo.readCompressed(PROOF);
+                    proof = NbtIo.readCompressed(PROOF.toPath(), net.minecraft.nbt.NbtAccounter.unlimitedHeap());
                     id = proof.getUUID("event");
                     if (session.id().equals(proof.getUUID("session"))) throw new IllegalStateException("Not a new session");
                     if (manager.find(id) == null || manager.find(id).deadline != session.startedAt() + 6000) {
@@ -102,7 +102,11 @@ public final class AirdropRestartCheck {
                 var crate = (AirdropCrateBlockEntity) level.getBlockEntity(FAR);
                 if (crate == null || !inventory(crate).equals(proof.getCompound("far"))) throw new IllegalStateException("Far inventory changed");
                 // Loading schedules the block entity onLoad callback for the next tick.
-                level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(FAR), 2, FAR);
+                // A one-shot PORTAL ticket expires after 300 ticks and unloads the chunk before
+                // the deadline; hold it with a persistent FORCED ticket instead. At distance 2
+                // the chunk is ENTITY_TICKING, so the crate must genuinely expire on schedule.
+                level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.FORCED,
+                        new net.minecraft.world.level.ChunkPos(FAR), 2, new net.minecraft.world.level.ChunkPos(FAR));
                 checkedFar = true;
             }
             if (checkedFar && elapsed >= 1220 && elapsed < 5999) {
@@ -133,7 +137,7 @@ public final class AirdropRestartCheck {
         if (done || failure != null) { client.stop(); return; }
         if (!opening && client.getOverlay() == null && client.screen instanceof TitleScreen) {
             opening = true;
-            client.createWorldOpenFlows().loadLevel(new TitleScreen(), "airdrop-restartcheck");
+            client.createWorldOpenFlows().openWorld("airdrop-restartcheck", () -> client.setScreen(new TitleScreen()));
         }
     }
 }

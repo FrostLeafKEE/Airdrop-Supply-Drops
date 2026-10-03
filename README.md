@@ -37,7 +37,7 @@ Install the matching **Forge** version, then place the mod JAR in the `mods` fol
 | 1.21.1 | 52.1.0 | 21 | [`master`](https://github.com/FrostLeafKEE/Airdrop-Supply-Drops/tree/master) |
 | 1.20.1 | 47.3.0 | 17 | [`forge-1.20.1`](https://github.com/FrostLeafKEE/Airdrop-Supply-Drops/tree/forge-1.20.1) |
 
-**This branch contains Minecraft 1.20.1 source.** Datapacks are version-specific: 1.20.1 uses `loot_tables` and pack format 15; 1.21.1 uses `loot_table` and pack format 48. Use the example from the matching branch.
+**This branch contains Minecraft 1.21.1 source.** Datapacks are version-specific: 1.20.1 uses `loot_tables` and pack format 15; 1.21.1 uses `loot_table` and pack format 48. Use the example from the matching branch.
 
 The internal mod ID is `airdrop_supply_drops`. If upgrading from an early build with the old `airdrop` ID, read the [migration notes](ID-MIGRATION.md) first and back up your world. Back up worlds before upgrading between Minecraft versions as well.
 
@@ -61,7 +61,7 @@ Commands require operator permission level 2 or cheats in singleplayer:
 
 ## Building from source
 
-Install **JDK 17** for this branch and set `JAVA_HOME`. The Gradle wrapper downloads tools and dependencies on its first run.
+Install **JDK 21** for this branch and set `JAVA_HOME`. The Gradle wrapper downloads tools and dependencies on its first run.
 
 ```sh
 ./gradlew build

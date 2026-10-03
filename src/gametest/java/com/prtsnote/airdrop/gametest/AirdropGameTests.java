@@ -1,4 +1,4 @@
-package com.prtsnote.airdrop;
+package com.prtsnote.airdrop.gametest;
 
 import com.google.gson.JsonParser;
 import com.prtsnote.airdrop.data.AirdropTypes;
@@ -18,22 +18,20 @@ import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.gametest.GameTestHolder;
-import net.minecraftforge.gametest.PrefixGameTestTemplate;
 
 @GameTestHolder("airdrop_supply_drops")
-@PrefixGameTestTemplate(false)
 public final class AirdropGameTests {
     private static final BlockPos POS = new BlockPos(2, 2, 2);
 
     private static AirdropCrateBlockEntity crate(GameTestHelper helper) {
         helper.setBlock(POS.below(), Blocks.STONE);
-        var type = AirdropTypes.all().get(new ResourceLocation("airdrop_supply_drops:mineral"));
+        var type = AirdropTypes.all().get(ResourceLocation.parse("airdrop_supply_drops:mineral"));
         helper.assertTrue(type != null, "Built-in mineral type must load");
         helper.assertTrue(AirdropServer.placeCrate(helper.getLevel(), helper.absolutePos(POS), type), "Crate must place");
         return (AirdropCrateBlockEntity) helper.getLevel().getBlockEntity(helper.absolutePos(POS));
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "airdrop_supply_drops:empty")
     public static void hopperCannotExtractCrateContents(GameTestHelper helper) {
         var crate = crate(helper);
         int before = 0;
@@ -57,7 +55,7 @@ public final class AirdropGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "airdrop_supply_drops:empty")
     public static void descendingCrateVisibleAtEventDistance(GameTestHelper helper) {
         var drop = com.prtsnote.airdrop.registry.ModEntities.FALLING_AIRDROP.get().create(helper.getLevel());
         helper.assertTrue(drop.shouldRenderAtSqrDistance(200 * 200), "Crate and parachute must render at the maximum landing distance");
@@ -67,16 +65,16 @@ public final class AirdropGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "airdrop_supply_drops:empty")
     public static void foodCrateContainsVanillaFood(GameTestHelper helper) {
-        var type = AirdropTypes.all().get(new ResourceLocation("airdrop_supply_drops:food"));
+        var type = AirdropTypes.all().get(ResourceLocation.parse("airdrop_supply_drops:food"));
         helper.assertTrue(type != null && type.weight() > 0, "Food airdrop must load and participate in automatic selection");
         helper.setBlock(POS.below(), Blocks.STONE);
         helper.assertTrue(AirdropServer.placeCrate(helper.getLevel(), helper.absolutePos(POS), type), "Food crate must place");
         var crate = (AirdropCrateBlockEntity) helper.getLevel().getBlockEntity(helper.absolutePos(POS));
         helper.assertTrue(crate.getBlockState().getValue(com.prtsnote.airdrop.world.block.AirdropCrateBlock.FOOD), "Food appearance must be applied");
         helper.assertTrue(!crate.isEmpty() && crate.getDisplayName().equals(type.name()), "Food crate must have loot and its own title");
-        var table = helper.getLevel().getServer().getLootData().getLootTable(type.lootTable());
+        var table = com.prtsnote.airdrop.data.AirdropValidation.lootTable(helper.getLevel().getServer(), type.lootTable());
         var params = new LootParams.Builder(helper.getLevel()).withParameter(LootContextParams.ORIGIN, Vec3.ZERO)
                 .create(LootContextParamSets.CHEST);
         var seen = new java.util.HashSet<net.minecraft.world.item.Item>();
@@ -84,7 +82,7 @@ public final class AirdropGameTests {
             var loot = table.getRandomItems(params, seed);
             helper.assertTrue(!loot.isEmpty(), "Food loot must not be empty");
             for (var stack : loot) {
-                helper.assertTrue(stack.isEdible() && net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(stack.getItem()).getNamespace().equals("minecraft"),
+                helper.assertTrue(stack.has(net.minecraft.core.component.DataComponents.FOOD) && net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(stack.getItem()).getNamespace().equals("minecraft"),
                         "Food airdrop must contain only vanilla edible items");
                 seen.add(stack.getItem());
             }
@@ -95,9 +93,9 @@ public final class AirdropGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "airdrop_supply_drops:empty")
     public static void exampleDatapackLoadsAndFills(GameTestHelper helper) {
-        var type = AirdropTypes.all().get(new ResourceLocation("example_airdrops:survival"));
+        var type = AirdropTypes.all().get(ResourceLocation.parse("example_airdrops:survival"));
         helper.assertTrue(type != null, "Example datapack type must load from world/datapacks");
         helper.setBlock(POS.below(), Blocks.STONE);
         helper.assertTrue(AirdropServer.placeCrate(helper.getLevel(), helper.absolutePos(POS), type), "Custom crate must place");
@@ -107,13 +105,14 @@ public final class AirdropGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "airdrop_supply_drops:empty")
     public static void reloadingDoesNotResetDeadline(GameTestHelper helper) {
         var crate = crate(helper);
         crate.setRemainingTicks(10);
-        var saved = crate.saveWithFullMetadata();
+        var registries = helper.getLevel().registryAccess();
+        var saved = crate.saveWithFullMetadata(registries);
         helper.runAfterDelay(4, () -> {
-            crate.load(saved);
+            crate.loadWithComponents(saved, registries);
             crate.onLoad();
             helper.assertTrue(crate.getRemainingTicks() <= 6, "Same-session reload must preserve absolute deadline");
         });
@@ -123,7 +122,7 @@ public final class AirdropGameTests {
         });
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "airdrop_supply_drops:empty")
     public static void expiredCrateCannotScatterLoot(GameTestHelper helper) {
         var crate = crate(helper);
         crate.setRemainingTicks(0);
@@ -132,17 +131,17 @@ public final class AirdropGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 100)
+    @GameTest(template = "airdrop_supply_drops:empty", timeoutTicks = 100)
     public static void descentTransfersSnapshot(GameTestHelper helper) {
         helper.setBlock(POS.below(), Blocks.STONE);
         var drop = com.prtsnote.airdrop.registry.ModEntities.FALLING_AIRDROP.get().create(helper.getLevel());
         BlockPos start = helper.absolutePos(POS.above(2));
         drop.setPos(start.getX() + 0.5, start.getY(), start.getZ() + 0.5);
-        helper.assertTrue(drop.prepare(AirdropTypes.all().get(new ResourceLocation("airdrop_supply_drops:mineral"))), "Drop must prepare");
+        helper.assertTrue(drop.prepare(AirdropTypes.all().get(ResourceLocation.parse("airdrop_supply_drops:mineral"))), "Drop must prepare");
         var saved = new net.minecraft.nbt.CompoundTag();
         drop.saveWithoutId(saved);
         var contents = net.minecraft.core.NonNullList.withSize(27, ItemStack.EMPTY);
-        net.minecraft.world.ContainerHelper.loadAllItems(saved, contents);
+        net.minecraft.world.ContainerHelper.loadAllItems(saved, contents, helper.getLevel().registryAccess());
         helper.getLevel().addFreshEntity(drop);
         helper.runAfterDelay(40, () -> {
             helper.assertTrue(drop.isRemoved(), "Falling entity must disappear on landing");
@@ -156,9 +155,9 @@ public final class AirdropGameTests {
         });
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "airdrop_supply_drops:empty")
     public static void appearanceAndDeploymentSurviveReload(GameTestHelper helper) {
-        var type = AirdropTypes.all().get(new ResourceLocation("airdrop_supply_drops:food"));
+        var type = AirdropTypes.all().get(ResourceLocation.parse("airdrop_supply_drops:food"));
         var level = helper.getLevel();
         var drop = com.prtsnote.airdrop.registry.ModEntities.FALLING_AIRDROP.get().create(level);
         var pos = helper.absolutePos(POS);
@@ -183,22 +182,72 @@ public final class AirdropGameTests {
         });
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "airdrop_supply_drops:empty")
     public static void inventoryRoundTrip(GameTestHelper helper) {
         var crate = crate(helper);
         helper.assertTrue(!crate.isEmpty(), "Loot table must fill crate");
         crate.clearContent();
         crate.setItem(0, new ItemStack(Items.DIAMOND, 1));
-        var saved = crate.saveWithFullMetadata();
+        var saved = crate.saveWithFullMetadata(helper.getLevel().registryAccess());
         crate.setItem(1, new ItemStack(Items.DIRT));
-        crate.load(saved);
+        crate.loadWithComponents(saved, helper.getLevel().registryAccess());
         helper.assertTrue(crate.getItem(0).is(Items.DIAMOND) && crate.getItem(0).getCount() == 1, "Saved diamond must survive");
         helper.assertTrue(crate.getItem(1).isEmpty(), "Loading must remove stale slots");
         helper.assertTrue(!crate.canPlaceItem(0, new ItemStack(Items.DIRT)), "Container must reject insertion");
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "airdrop_supply_drops:empty", timeoutTicks = 100)
+    public static void componentCargoSurvivesLandingAndReload(GameTestHelper helper) {
+        var level = helper.getLevel();
+        var type = AirdropTypes.all().get(ResourceLocation.parse("example_airdrops:medical"));
+        helper.assertTrue(type != null, "Medical example must load");
+        var table = com.prtsnote.airdrop.data.AirdropValidation.lootTable(level.getServer(), type.lootTable());
+        var params = new LootParams.Builder(level).withParameter(LootContextParams.ORIGIN, Vec3.ZERO)
+                .create(LootContextParamSets.CHEST);
+        ItemStack potion = ItemStack.EMPTY;
+        for (int seed = 1; seed <= 100 && potion.isEmpty(); seed++) {
+            for (var stack : table.getRandomItems(params, seed)) if (stack.is(Items.POTION)) potion = stack.copy();
+        }
+        helper.assertTrue(!potion.isEmpty(), "Medical example must produce a potion");
+        var effects = potion.get(net.minecraft.core.component.DataComponents.POTION_CONTENTS);
+        helper.assertTrue(effects != null && effects.is(net.minecraft.world.item.alchemy.Potions.HEALING),
+                "Medical potion must contain the healing effect, not water");
+        var named = new ItemStack(Items.DIAMOND, 3);
+        named.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, net.minecraft.network.chat.Component.literal("Cargo proof"));
+        var expected = net.minecraft.core.NonNullList.withSize(27, ItemStack.EMPTY);
+        expected.set(0, potion);
+        expected.set(26, named);
+
+        helper.setBlock(POS.below(), Blocks.STONE);
+        var drop = com.prtsnote.airdrop.registry.ModEntities.FALLING_AIRDROP.get().create(level);
+        var start = helper.absolutePos(POS.above(2));
+        drop.setPos(start.getX() + 0.5, start.getY(), start.getZ() + 0.5);
+        helper.assertTrue(drop.prepare(type), "Medical cargo must prepare");
+        var saved = drop.saveWithoutId(new net.minecraft.nbt.CompoundTag());
+        net.minecraft.world.ContainerHelper.saveAllItems(saved, expected, level.registryAccess());
+        drop.load(saved);
+        var restored = com.prtsnote.airdrop.registry.ModEntities.FALLING_AIRDROP.get().create(level);
+        restored.load(drop.saveWithoutId(new net.minecraft.nbt.CompoundTag()));
+        level.addFreshEntity(restored);
+        helper.runAfterDelay(40, () -> {
+            helper.assertTrue(restored.isRemoved(), "Restored cargo must land");
+            helper.assertTrue(level.getBlockEntity(helper.absolutePos(POS)) instanceof AirdropCrateBlockEntity,
+                    "Restored cargo must create a crate");
+            var crate = (AirdropCrateBlockEntity) level.getBlockEntity(helper.absolutePos(POS));
+            for (int slot = 0; slot < 27; slot++) helper.assertTrue(ItemStack.matches(expected.get(slot), crate.getItem(slot)),
+                    "Landing must retain components and count in slot " + slot);
+            var crateTag = crate.saveWithFullMetadata(level.registryAccess());
+            crate.clearContent();
+            crate.loadWithComponents(crateTag, level.registryAccess());
+            for (int slot = 0; slot < 27; slot++) helper.assertTrue(ItemStack.matches(expected.get(slot), crate.getItem(slot)),
+                    "Crate reload must retain components and count in slot " + slot);
+            helper.assertTrue(crate.getDisplayName().equals(type.name()), "Medical title must survive reload");
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = "airdrop_supply_drops:empty")
     public static void expirationDeletesLoot(GameTestHelper helper) {
         var crate = crate(helper);
         crate.setRemainingTicks(2);
@@ -209,7 +258,7 @@ public final class AirdropGameTests {
         });
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "airdrop_supply_drops:empty")
     public static void emptyCrateDisappears(GameTestHelper helper) {
         crate(helper).clearContent();
         helper.runAfterDelay(2, () -> {
@@ -218,14 +267,14 @@ public final class AirdropGameTests {
         });
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "airdrop_supply_drops:empty")
     public static void playerBreakScattersOnlyContents(GameTestHelper helper) {
         var crate = crate(helper);
         crate.clearContent();
         crate.setItem(0, new ItemStack(Items.IRON_INGOT, 7));
         var pos = helper.absolutePos(POS);
         var state = helper.getLevel().getBlockState(pos);
-        state.getBlock().playerWillDestroy(helper.getLevel(), pos, state, helper.makeMockPlayer());
+        state.getBlock().playerWillDestroy(helper.getLevel(), pos, state, helper.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL));
         helper.getLevel().destroyBlock(pos, true);
         int count = itemsNear(helper).stream().map(ItemEntity::getItem).mapToInt(ItemStack::getCount).sum();
         helper.assertTrue(count == 7 && itemsNear(helper).stream().allMatch(e -> e.getItem().is(Items.IRON_INGOT)),
@@ -237,7 +286,7 @@ public final class AirdropGameTests {
         return helper.getLevel().getEntitiesOfClass(ItemEntity.class, new AABB(helper.absolutePos(POS)).inflate(1));
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "airdrop_supply_drops:empty")
     public static void invalidTypesAreRejected(GameTestHelper helper) {
         for (String json : new String[]{
                 "{\"schema_version\":2}",
@@ -246,18 +295,18 @@ public final class AirdropGameTests {
                 "{\"schema_version\":1,\"weight\":0}",
                 "{\"schema_version\":1,\"weight\":1,\"appearance\":\"invalid\"}"}) {
             boolean rejected = false;
-            try { AirdropTypes.parse(new ResourceLocation("test:invalid"), JsonParser.parseString(json).getAsJsonObject()); }
+            try { AirdropTypes.parse(ResourceLocation.parse("test:invalid"), JsonParser.parseString(json).getAsJsonObject()); }
             catch (RuntimeException expected) { rejected = true; }
             helper.assertTrue(rejected, "Invalid type must be rejected: " + json);
         }
         helper.succeed();
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "airdrop_supply_drops:empty")
     public static void mineralRarityAndCounts(GameTestHelper helper) {
         var params = new LootParams.Builder(helper.getLevel()).withParameter(LootContextParams.ORIGIN, Vec3.ZERO)
                 .create(LootContextParamSets.CHEST);
-        var table = helper.getLevel().getServer().getLootData().getLootTable(new ResourceLocation("airdrop_supply_drops:airdrop/mineral"));
+        var table = com.prtsnote.airdrop.data.AirdropValidation.lootTable(helper.getLevel().getServer(), ResourceLocation.parse("airdrop_supply_drops:airdrop/mineral"));
         int rolls = 0;
         int diamonds = 0;
         int ironNuggets = 0;

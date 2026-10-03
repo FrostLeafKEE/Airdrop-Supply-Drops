@@ -1,4 +1,4 @@
-package com.prtsnote.airdrop;
+package com.prtsnote.airdrop.gametest;
 
 import com.prtsnote.airdrop.data.AirdropTypes;
 import com.prtsnote.airdrop.server.AirdropEvents;
@@ -14,12 +14,10 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.AABB;
 import net.minecraftforge.gametest.GameTestHolder;
-import net.minecraftforge.gametest.PrefixGameTestTemplate;
 
 @GameTestHolder("airdrop_supply_drops")
-@PrefixGameTestTemplate(false)
 public final class AirdropEventGameTests {
-    @GameTest(template = "empty")
+    @GameTest(template = "airdrop_supply_drops:empty")
     public static void flightAnimationRemainsContinuous(GameTestHelper helper) {
         var clock = new com.prtsnote.airdrop.world.entity.FlightAnimationClock();
         clock.synchronize(137);
@@ -47,7 +45,7 @@ public final class AirdropEventGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 850)
+    @GameTest(template = "airdrop_supply_drops:empty", timeoutTicks = 850)
     public static void fullEventAndRecovery(GameTestHelper helper) {
         BlockPos relative = new BlockPos(2, 180 - helper.absolutePos(BlockPos.ZERO).getY(), 2);
         var level = helper.getLevel();
@@ -59,7 +57,7 @@ public final class AirdropEventGameTests {
         var manager = AirdropEvents.get(server);
         // A failed prior test run may have left an event in this dedicated test world.
         for (var previous : manager.all()) manager.cancel(server, previous.id);
-        var type = AirdropTypes.all().get(new ResourceLocation("example_airdrops:medical"));
+        var type = AirdropTypes.all().get(ResourceLocation.parse("example_airdrops:medical"));
         var pos = helper.absolutePos(relative);
         // The default fixture is only five blocks tall; clear remnants of old test markers above it.
         for (int y = 0; y < 64; y++) level.setBlockAndUpdate(pos.above(y), Blocks.AIR.defaultBlockState());
@@ -74,9 +72,9 @@ public final class AirdropEventGameTests {
         helper.runAfterDelay(162, () -> helper.assertTrue(AirdropEvents.get(server).find(id).flares == 2, "Second flare at tick 160"));
         helper.runAfterDelay(170, () -> {
             var old = AirdropEvents.get(server);
-            CompoundTag saved = old.save(new CompoundTag());
+            CompoundTag saved = old.save(new CompoundTag(), server.registryAccess());
             old.stopSession(server);
-            var restored = AirdropEvents.load(saved);
+            var restored = AirdropEvents.load(saved, server.registryAccess());
             server.overworld().getDataStorage().set("airdrop_supply_drops_events", restored);
             restored.startSession(server);
             helper.assertTrue(restored.find(id).settings.lifetimeSeconds() == 600 && !restored.find(id).settings.resetOnRejoin(), "Restart must preserve type settings");
@@ -110,7 +108,7 @@ public final class AirdropEventGameTests {
             helper.assertTrue(event.deadline - AirdropEvents.now(server) > 11000, "Landed event must use the captured ten-minute lifetime");
             helper.assertTrue(crate != null && id.equals(crate.eventId()), "Landed crate must belong to the event");
             var contents = net.minecraft.core.NonNullList.withSize(27, ItemStack.EMPTY);
-            net.minecraft.world.ContainerHelper.loadAllItems(originalCargo, contents);
+            net.minecraft.world.ContainerHelper.loadAllItems(originalCargo, contents, server.registryAccess());
             for (int i = 0; i < 27; i++) helper.assertTrue(ItemStack.matches(contents.get(i), crate.getItem(i)), "Recovery changed inventory at slot " + i);
             helper.assertTrue(AirdropEvents.get(server).begin(level, pos.east(), type) == null, "Landed crate must retain active slot");
             AirdropEvents.get(server).cancel(server, id);
@@ -120,7 +118,7 @@ public final class AirdropEventGameTests {
         });
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "airdrop_supply_drops:empty")
     public static void weightedTypesAndSchedulePersistence(GameTestHelper helper) {
         int minerals = 0, food = 0, custom = 0, medical = 0;
         for (int i = 0; i < 12000; i++) {
@@ -141,7 +139,7 @@ public final class AirdropEventGameTests {
         scheduler.schedule(helper.getLevel().getServer(), now);
         long next = scheduler.nextEventAt();
         helper.assertTrue(next >= now + 24000 && next <= now + 36000, "Default interval must be 20..30 minutes");
-        var restored = AirdropEvents.load(scheduler.save(new CompoundTag()));
+        var restored = AirdropEvents.load(scheduler.save(new CompoundTag(), helper.getLevel().registryAccess()), helper.getLevel().registryAccess());
         helper.assertTrue(restored.nextEventAt() == next, "Restart must preserve next scheduled event");
         helper.succeed();
     }

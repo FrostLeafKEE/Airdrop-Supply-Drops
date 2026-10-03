@@ -1,10 +1,10 @@
 # Modpack integration
 
-Airdrop: Supply Drops supports server configuration, datapacks, and resource packs. This guide describes **Minecraft 1.20.1**. Use the guide and example from the branch matching your game version.
+Airdrop: Supply Drops supports server configuration, datapacks, and resource packs. This guide describes **Minecraft 1.21.1**. Use the guide and example from the branch matching your game version.
 
 ## Install the example
 
-Copy `example_datapack` into `<world>/datapacks/`. Its root must contain `pack.mcmeta` and `data`. This version uses datapack format **15**. The example adds `example_airdrops:medical` and `example_airdrops:survival`; it is not bundled into the mod JAR.
+Copy `example_datapack` into `<world>/datapacks/`. Its root must contain `pack.mcmeta` and `data`. This version uses datapack format **48**. The example adds `example_airdrops:medical` and `example_airdrops:survival`; it is not bundled into the mod JAR.
 
 ```text
 /reload
@@ -98,9 +98,9 @@ Crates have a fixed 27-slot inventory. Players can only take items out. Automate
 
 ## Loot and exact probabilities
 
-Create a vanilla chest table at `data/<namespace>/loot_tables/<path>.json`. Reference it as `<namespace>:<path>`. Override `data/airdrop_supply_drops/loot_tables/airdrop/mineral.json` to replace built-in mineral loot.
+Create a vanilla chest table at `data/<namespace>/loot_table/<path>.json`. Reference it as `<namespace>:<path>`. Override `data/airdrop_supply_drops/loot_table/airdrop/mineral.json` to replace built-in mineral loot.
 
-`pools` run independently, `rolls` controls draw count, entry `weight` values are relative, and `minecraft:set_count` controls quantities. Item entries use their registered item ID in `name`, including other installed mods' items. In this version, nested `minecraft:loot_table` entries also use `name` for the referenced table ID.
+`pools` run independently, `rolls` controls draw count, entry `weight` values are relative, and `minecraft:set_count` controls quantities. Item entries use their registered item ID in `name`, including other installed mods' items. In this version, nested `minecraft:loot_table` entries use `value` for the referenced table ID; item/tag entries still use `name`.
 
 For a **1% chance per crate** to generate one diamond, add a separate pool that runs once:
 
@@ -116,11 +116,11 @@ For a **1% chance per crate** to generate one diamond, add a separate pool that 
 }
 ```
 
-The complete example is [survival.json](example_datapack/data/example_airdrops/loot_tables/airdrop/survival.json). Do not add diamonds to other pools if you want a maximum of one. Keep total output within the crate's 27 slots; generated loot can overflow capacity.
+The complete example is [survival.json](example_datapack/data/example_airdrops/loot_table/airdrop/survival.json). Do not add diamonds to other pools if you want a maximum of one. Keep total output within the crate's 27 slots; generated loot can overflow capacity.
 
 The built-in mineral table instead uses **1% legendary weight per roll**, with 8–14 rolls per crate. Each legendary result gives one diamond; multiple successes can produce multiple diamonds. Weights do not have to sum to 100.
 
-The medical example includes honey bottles, healing potions, and golden apples. Potions use `minecraft:set_nbt` to set `Potion`. This mod adds no resource items.
+The medical example includes honey bottles, healing potions, and golden apples. Potions use `minecraft:set_components` to set `minecraft:potion_contents`. This mod adds no resource items.
 
 ## Optional mods and validation
 

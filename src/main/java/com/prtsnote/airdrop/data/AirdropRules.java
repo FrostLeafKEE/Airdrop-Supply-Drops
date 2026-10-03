@@ -19,8 +19,8 @@ public final class AirdropRules {
             if (!dimensions.isEmpty() && !dimensions.contains(level.dimension().location().toString())) return false;
             var biome = level.getBiome(pos);
             if (!biomes.isEmpty() && biomes.stream().noneMatch(id -> id.startsWith("#")
-                    ? biome.is(TagKey.create(Registries.BIOME, new ResourceLocation(id.substring(1))))
-                    : biome.is(new ResourceLocation(id)))) return false;
+                    ? biome.is(TagKey.create(Registries.BIOME, ResourceLocation.parse(id.substring(1))))
+                    : biome.is(ResourceLocation.parse(id)))) return false;
             if (!matchesWeather(level.isRaining(), level.isThundering())) return false;
             return matchesTime(level.getDayTime());
         }

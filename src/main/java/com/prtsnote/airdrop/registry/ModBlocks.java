@@ -13,7 +13,8 @@ public final class ModBlocks {
 
     public static final RegistryObject<Block> AIRDROP_CRATE = BLOCKS.register(
             "airdrop_crate",
-            () -> new AirdropCrateBlock(Block.Properties.copy(Blocks.CHEST).strength(0.65F, 3600000.0F)
+            () -> new AirdropCrateBlock(net.minecraft.world.level.block.state.BlockBehaviour.Properties.ofFullCopy(Blocks.CHEST)
+                    .strength(0.65F, 3600000.0F)
                     .pushReaction(net.minecraft.world.level.material.PushReaction.BLOCK).noOcclusion()));
 
     private ModBlocks() {

@@ -1,4 +1,4 @@
-package com.prtsnote.airdrop;
+package com.prtsnote.airdrop.gametest;
 
 import com.prtsnote.airdrop.data.AirdropTypes;
 import com.prtsnote.airdrop.registry.ModEntities;
@@ -13,18 +13,16 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraftforge.gametest.GameTestHolder;
-import net.minecraftforge.gametest.PrefixGameTestTemplate;
 import java.util.UUID;
 
 @GameTestHolder("airdrop_supply_drops")
-@PrefixGameTestTemplate(false)
 public final class AirdropLiquidGameTests {
-    @GameTest(template = "empty")
+    @GameTest(template = "airdrop_supply_drops:empty")
     public static void waterBelowCreatesCrateWithoutReplacingWater(GameTestHelper helper) {
         liquidLanding(helper, Blocks.WATER, false);
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "airdrop_supply_drops:empty")
     public static void submergedLavaDropSurfacesWithoutReplacingLava(GameTestHelper helper) {
         liquidLanding(helper, Blocks.LAVA, true);
     }
@@ -41,7 +39,7 @@ public final class AirdropLiquidGameTests {
         level.setBlockAndUpdate(pos.above(2), Blocks.AIR.defaultBlockState());
         var drop = ModEntities.FALLING_AIRDROP.get().create(level);
         drop.setPos(pos.getX() + 0.5, pos.getY() + (submerged ? 0.4 : 1.8), pos.getZ() + 0.5);
-        helper.assertTrue(drop.prepare(AirdropTypes.all().get(new ResourceLocation("airdrop_supply_drops:mineral"))), "Drop must prepare");
+        helper.assertTrue(drop.prepare(AirdropTypes.all().get(ResourceLocation.parse("airdrop_supply_drops:mineral"))), "Drop must prepare");
         level.addFreshEntity(drop);
         helper.runAfterDelay(3, () -> {
             helper.assertTrue(drop.isRemoved(), "Fluid below must trigger conversion before ground collision");
@@ -53,7 +51,7 @@ public final class AirdropLiquidGameTests {
         });
     }
 
-    @GameTest(template = "empty")
+    @GameTest(template = "airdrop_supply_drops:empty")
     public static void unloadedExpiredEventReleasesCapacity(GameTestHelper helper) {
         var server = helper.getLevel().getServer();
         BlockPos remote = new BlockPos(2000000, 180, 2000000);
@@ -67,7 +65,7 @@ public final class AirdropLiquidGameTests {
         CompoundTag cargo = new CompoundTag(); cargo.putUUID("UUID", UUID.randomUUID()); event.put("cargo", cargo);
         ListTag list = new ListTag(); list.add(event);
         CompoundTag saved = new CompoundTag(); saved.put("events", list);
-        var manager = AirdropEvents.load(saved);
+        var manager = AirdropEvents.load(saved, server.registryAccess());
         helper.assertTrue(manager.all().size() == 1, "Saved landed event must load");
         manager.tick(server);
         helper.assertTrue(manager.find(id) == null && manager.all().isEmpty(), "Unloaded expiry must release active slot");

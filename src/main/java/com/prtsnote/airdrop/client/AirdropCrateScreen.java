@@ -8,7 +8,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 
 public final class AirdropCrateScreen extends AbstractContainerScreen<AirdropCrateMenu> {
-    private static final ResourceLocation TEXTURE = new ResourceLocation("minecraft", "textures/gui/container/generic_54.png");
+    private static final ResourceLocation TEXTURE = ResourceLocation.withDefaultNamespace("textures/gui/container/generic_54.png");
 
     public AirdropCrateScreen(AirdropCrateMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -19,7 +19,6 @@ public final class AirdropCrateScreen extends AbstractContainerScreen<AirdropCra
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        renderBackground(graphics);
         super.render(graphics, mouseX, mouseY, partialTick);
         renderTooltip(graphics, mouseX, mouseY);
     }

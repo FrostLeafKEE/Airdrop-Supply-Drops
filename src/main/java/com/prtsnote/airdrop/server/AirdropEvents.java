@@ -3,11 +3,13 @@ package com.prtsnote.airdrop.server;
 import com.mojang.logging.LogUtils;
 import com.prtsnote.airdrop.config.AirdropConfig;
 import com.prtsnote.airdrop.data.AirdropTypes;
+import com.prtsnote.airdrop.data.AirdropValidation;
 import com.prtsnote.airdrop.registry.ModEntities;
 import com.prtsnote.airdrop.world.block.entity.AirdropCrateBlockEntity;
 import com.prtsnote.airdrop.world.entity.FallingAirdrop;
 import com.prtsnote.airdrop.world.entity.AirdropPlane;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -17,7 +19,6 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.TicketType;
 import net.minecraft.world.level.ChunkPos;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.level.storage.loot.LootTable;
 import net.minecraftforge.event.TickEvent;
@@ -48,7 +49,8 @@ public final class AirdropEvents extends SavedData {
     private long recoveryReadyAt;
 
     public static AirdropEvents get(MinecraftServer server) {
-        return server.overworld().getDataStorage().computeIfAbsent(AirdropEvents::load, AirdropEvents::new, "airdrop_supply_drops_events");
+        return server.overworld().getDataStorage()
+                .computeIfAbsent(new SavedData.Factory<>(AirdropEvents::new, AirdropEvents::load, null), "airdrop_supply_drops_events");
     }
     public Collection<Event> all() { return List.copyOf(events.values()); }
     public Event find(UUID id) { return events.get(id); }
@@ -208,7 +210,7 @@ public final class AirdropEvents extends SavedData {
 
     private static AirdropTypes.Type chooseType(ServerLevel level, Collection<AirdropTypes.Type> candidates) {
         var valid = candidates.stream()
-                .filter(type -> level.getServer().getLootData().getLootTable(type.lootTable()) != LootTable.EMPTY)
+                .filter(type -> AirdropValidation.lootTable(level.getServer(), type.lootTable()) != LootTable.EMPTY)
                 .sorted(Comparator.comparing(type -> type.id().toString())).toList();
         long total = valid.stream().mapToLong(AirdropTypes.Type::weight).sum();
         if (total == 0) return null;
@@ -249,7 +251,7 @@ public final class AirdropEvents extends SavedData {
         return (min + Math.floorMod(server.overworld().random.nextLong(), max - min + 1)) * 20L;
     }
 
-    public static AirdropEvents load(CompoundTag tag) {
+    public static AirdropEvents load(CompoundTag tag, HolderLookup.Provider registries) {
         AirdropEvents data = new AirdropEvents();
         data.nextEventAt = tag.getLong("next_event_at");
         for (var value : tag.getList("events", 10)) {
@@ -257,7 +259,7 @@ public final class AirdropEvents extends SavedData {
             try {
                 Event event = new Event();
                 event.id = item.getUUID("id"); event.planeId = item.getUUID("plane_id");
-                event.dimension = new ResourceLocation(item.getString("dimension"));
+                event.dimension = ResourceLocation.parse(item.getString("dimension"));
                 event.ground = BlockPos.of(item.getLong("ground"));
                 event.started = item.getLong("started"); event.deadline = item.getLong("deadline");
                 event.stage = Stage.valueOf(item.getString("stage"));
@@ -270,7 +272,7 @@ public final class AirdropEvents extends SavedData {
         }
         return data;
     }
-    @Override public CompoundTag save(CompoundTag tag) {
+    @Override public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
         tag.putLong("next_event_at", nextEventAt);
         ListTag list = new ListTag();
         for (Event event : all()) {

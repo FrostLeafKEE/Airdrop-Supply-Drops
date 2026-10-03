@@ -14,18 +14,22 @@ import java.util.Set;
 
 /** Validate references after vanilla loot tables and registry tags have finished reloading. */
 public final class AirdropValidation {
+    public static LootTable lootTable(MinecraftServer server, ResourceLocation id) {
+        return server.reloadableRegistries().getLootTable(ResourceKey.create(Registries.LOOT_TABLE, id));
+    }
+
     public static void validate(MinecraftServer server, AirdropTypes.Type type) {
         for (String dimension : type.conditions().dimensions()) {
-            if (server.getLevel(ResourceKey.create(Registries.DIMENSION, new ResourceLocation(dimension))) == null) {
+            if (server.getLevel(ResourceKey.create(Registries.DIMENSION, ResourceLocation.parse(dimension))) == null) {
                 throw new IllegalArgumentException("conditions.dimensions: unknown dimension " + dimension);
             }
         }
         var biomes = server.registryAccess().registryOrThrow(Registries.BIOME);
         for (String biome : type.conditions().biomes()) {
             if (biome.startsWith("#")) {
-                if (biomes.getTag(TagKey.create(Registries.BIOME, new ResourceLocation(biome.substring(1))))
+                if (biomes.getTag(TagKey.create(Registries.BIOME, ResourceLocation.parse(biome.substring(1))))
                         .map(tag -> tag.size() == 0).orElse(true)) throw new IllegalArgumentException("conditions.biomes: missing or empty tag " + biome);
-            } else if (!biomes.containsKey(new ResourceLocation(biome))) throw new IllegalArgumentException("conditions.biomes: unknown biome " + biome);
+            } else if (!biomes.containsKey(ResourceLocation.parse(biome))) throw new IllegalArgumentException("conditions.biomes: unknown biome " + biome);
         }
         loot(server, type.lootTable(), new HashSet<>(), new HashSet<>());
     }
@@ -33,9 +37,9 @@ public final class AirdropValidation {
     private static void loot(MinecraftServer server, ResourceLocation id, Set<ResourceLocation> active, Set<ResourceLocation> checked) {
         if (active.contains(id)) throw new IllegalArgumentException("loot_table: recursive reference " + id);
         if (!checked.add(id)) return;
-        if (server.getLootData().getLootTable(id) == LootTable.EMPTY) throw new IllegalArgumentException("loot_table: missing or invalid " + id);
+        if (lootTable(server, id) == LootTable.EMPTY) throw new IllegalArgumentException("loot_table: missing or invalid " + id);
         active.add(id);
-        var file = new ResourceLocation(id.getNamespace(), "loot_tables/" + id.getPath() + ".json");
+        var file = ResourceLocation.fromNamespaceAndPath(id.getNamespace(), "loot_table/" + id.getPath() + ".json");
         var resource = server.getResourceManager().getResource(file);
         // Programmatically supplied loot tables may have no JSON resource.
         if (resource.isPresent()) {
@@ -55,17 +59,19 @@ public final class AirdropValidation {
             for (var child : element.getAsJsonArray()) scan(server, child, path + "[" + index++ + "]", active, checked);
         } else if (element.isJsonObject()) {
             var json = element.getAsJsonObject();
-            if (json.has("type") && json.get("type").isJsonPrimitive() && json.has("name") && json.get("name").isJsonPrimitive()) {
+            if (json.has("type") && json.get("type").isJsonPrimitive()) {
                 String entryType = json.get("type").getAsString();
                 if (!entryType.contains(":")) entryType = "minecraft:" + entryType;
-                if (Set.of("minecraft:item", "minecraft:tag", "minecraft:loot_table").contains(entryType)) {
-                    var id = new ResourceLocation(json.get("name").getAsString());
+                String referenced = entryType.equals("minecraft:loot_table") ? "value" : "name";
+                if (Set.of("minecraft:item", "minecraft:tag", "minecraft:loot_table").contains(entryType)
+                        && json.has(referenced) && json.get(referenced).isJsonPrimitive()) {
+                    var id = ResourceLocation.parse(json.get(referenced).getAsString());
                     if (entryType.equals("minecraft:item") && !net.minecraftforge.registries.ForgeRegistries.ITEMS.containsKey(id)) {
-                        throw new IllegalArgumentException(path + ".name: unknown item " + id);
+                        throw new IllegalArgumentException(path + "." + referenced + ": unknown item " + id);
                     }
                     if (entryType.equals("minecraft:tag") && server.registryAccess().registryOrThrow(Registries.ITEM)
                             .getTag(TagKey.create(Registries.ITEM, id)).map(tag -> tag.size() == 0).orElse(true)) {
-                        throw new IllegalArgumentException(path + ".name: missing or empty item tag " + id);
+                        throw new IllegalArgumentException(path + "." + referenced + ": missing or empty item tag " + id);
                     }
                     if (entryType.equals("minecraft:loot_table")) loot(server, id, active, checked);
                 }
