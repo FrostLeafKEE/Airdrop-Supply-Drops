@@ -10,6 +10,8 @@ By default, a delivery is attempted every **20–30 minutes** in the **Overworld
 
 The aircraft releases three bursts of flares before dropping its cargo. The parachute opens during descent; by default, smoke starts after landing. The server can change its color and enable smoke during descent. Drops can land above water, lava, and other fluids without replacing the fluid blocks. Visibility depends on client render distance and the server's loaded chunks.
 
+Crates accelerate under gravity after release, slow as the parachute opens, then descend at a steady **2.4 blocks per second**. Client interpolation fills the movement between server updates; landing and cargo transfer remain server-controlled.
+
 The default limit is one active event across the server, including its landed crate. If no suitable player, loaded landing area, or event slot is available, the scheduler retries after one minute.
 
 ## Collecting supplies

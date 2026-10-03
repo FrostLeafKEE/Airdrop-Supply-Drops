@@ -32,6 +32,10 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.network.NetworkHooks;
 
 public final class FallingAirdrop extends Entity {
+    private static final double GRAVITY = 0.04;
+    private static final double FREE_FALL_SPEED = 0.28;
+    private static final double PARACHUTE_SPEED = 0.12;
+    private final DescentInterpolation interpolation = new DescentInterpolation();
     @Override public boolean shouldRenderAtSqrDistance(double distance) { return distance < 256 * 256; }
     private static final EntityDataAccessor<Boolean> FOOD = SynchedEntityData.defineId(FallingAirdrop.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Integer> DEPLOYMENT = SynchedEntityData.defineId(FallingAirdrop.class, EntityDataSerializers.INT);
@@ -48,7 +52,16 @@ public final class FallingAirdrop extends Entity {
 
     public FallingAirdrop(EntityType<? extends FallingAirdrop> type, Level level) {
         super(type, level);
-        setNoGravity(true);
+        setNoGravity(false);
+    }
+
+    @Override public void lerpTo(double x, double y, double z, float yaw, float pitch, int steps, boolean teleport) {
+        if (!level().isClientSide) {
+            super.lerpTo(x, y, z, yaw, pitch, steps, teleport);
+            return;
+        }
+        interpolation.synchronize(new Vec3(x, y, z), steps);
+        setRot(yaw, pitch);
     }
 
     public boolean prepare(AirdropTypes.Type type) {
@@ -98,6 +111,11 @@ public final class FallingAirdrop extends Entity {
     @Override
     public void tick() {
         super.tick();
+        if (level().isClientSide) {
+            Vec3 position = interpolation.tick(position());
+            setPos(position.x, position.y, position.z);
+            return;
+        }
         if (!(level() instanceof ServerLevel level)) return;
         if (eventId != null && !AirdropEvents.get(level.getServer()).ownsDrop(eventId, getUUID())) {
             discard();
@@ -114,7 +132,9 @@ public final class FallingAirdrop extends Entity {
                     net.minecraft.sounds.SoundSource.AMBIENT, 5F, 1F);
         }
         double opening = Math.max(0, deployment - 10) / 20.0;
-        setDeltaMovement(0, -(0.28 - 0.16 * opening), 0);
+        double speedLimit = FREE_FALL_SPEED + (PARACHUTE_SPEED - FREE_FALL_SPEED) * opening;
+        double fallingSpeed = Math.max(-speedLimit, getDeltaMovement().y - GRAVITY);
+        setDeltaMovement(0, fallingSpeed, 0);
         move(MoverType.SELF, getDeltaMovement());
         if (tickCount % 4 == 0) {
             com.prtsnote.airdrop.server.AirdropSmoke.emit(level, getX(), getY() + 0.6, getZ(), true);
@@ -166,6 +186,8 @@ public final class FallingAirdrop extends Entity {
         if (!level().isClientSide) settings = com.prtsnote.airdrop.data.AirdropRules.Settings.load(tag.getCompound("airdrop_settings"));
         entityData.set(FOOD, tag.getBoolean("food"));
         entityData.set(DEPLOYMENT, Math.max(0, Math.min(30, tag.getInt("deployment"))));
+        // Earlier builds saved NoGravity=true; resumed crates now use the capped gravity motion too.
+        setNoGravity(false);
         eventId = tag.hasUUID("event_id") ? tag.getUUID("event_id") : null;
     }
 
