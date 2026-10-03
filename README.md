@@ -2,7 +2,7 @@
 
 <img src="art/logo/airdrop-logo-v1.png" alt="A parachute supply crate trailing red smoke" width="180">
 
-**Aircraft, parachutes, and supplies worth searching for.** Airdrop: Supply Drops brings timed supply deliveries to your Minecraft world, with a block-style aircraft, three bursts of flares, and a parachute crate trailing red smoke.
+**Aircraft, parachutes, and supplies worth searching for.** Airdrop: Supply Drops brings timed supply deliveries to your Minecraft world, with a block-style aircraft, three bursts of flares, and parachute crates marked by smoke after landing.
 
 ## Finding airdrops
 
