@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "food=false": {
+      "model": "airdrop_supply_drops:block/airdrop_crate"
+    },
+    "food=true": {
+      "model": "airdrop_supply_drops:block/airdrop_crate_food"
+    }
+  }
+}

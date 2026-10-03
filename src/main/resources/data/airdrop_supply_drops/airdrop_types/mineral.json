@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "display_name": {
+    "translate": "airdrop_supply_drops.type.mineral"
+  },
+  "weight": 1,
+  "loot_table": "airdrop_supply_drops:airdrop/mineral",
+  "appearance": "mineral"
+}

@@ -1,0 +1,18 @@
+{
+  "block.airdrop_supply_drops.airdrop_crate": "Airdrop Crate",
+  "container.airdrop_supply_drops.airdrop_crate": "Airdrop Crate",
+  "airdrop_supply_drops.type.mineral": "Mineral Airdrop",
+  "airdrop_supply_drops.type.food": "Food Airdrop",
+  "message.airdrop_supply_drops.approaching": "A supply aircraft is approaching your area.",
+  "entity.airdrop_supply_drops.airdrop_plane": "Supply Aircraft",
+  "entity.airdrop_supply_drops.falling_airdrop": "Descending Airdrop",
+  "subtitles.airdrop_supply_drops.aircraft_engine": "Aircraft approaches",
+  "subtitles.airdrop_supply_drops.flare_launch": "Aircraft launches flares",
+  "subtitles.airdrop_supply_drops.parachute_open": "Parachute opens",
+  "subtitles.airdrop_supply_drops.crate_land": "Supply crate lands",
+  "message.airdrop_supply_drops.limit_reached": "Cannot start: %s/%s active airdrops. Landed crates also count. Use /airdrop_supply_drops status; empty the crate, wait for expiry, or use /airdrop_supply_drops cancel <UUID>.",
+  "message.airdrop_supply_drops.invalid_loot": "Cannot start: loot table %s is missing or invalid. Check your datapack.",
+  "message.airdrop_supply_drops.no_landing": "Cannot start: no safe landing point in the loaded area %s-%s blocks away. Move to open terrain and let chunks load, then retry.",
+  "message.airdrop_supply_drops.start_failed": "Could not create the airdrop event. Check the game log.",
+  "subtitles.airdrop_supply_drops.descent_wind": "Airdrop drifts in the wind"
+}

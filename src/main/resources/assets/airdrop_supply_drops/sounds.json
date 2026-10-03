@@ -1,0 +1,47 @@
+{
+  "aircraft_engine": {
+    "subtitle": "subtitles.airdrop_supply_drops.aircraft_engine",
+    "sounds": [
+      {
+        "name": "airdrop_supply_drops:aircraft_engine",
+        "preload": true
+      }
+    ]
+  },
+  "flare_launch": {
+    "subtitle": "subtitles.airdrop_supply_drops.flare_launch",
+    "sounds": [
+      {
+        "name": "airdrop_supply_drops:flare_launch",
+        "preload": true
+      }
+    ]
+  },
+  "parachute_open": {
+    "subtitle": "subtitles.airdrop_supply_drops.parachute_open",
+    "sounds": [
+      {
+        "name": "airdrop_supply_drops:parachute_open",
+        "preload": true
+      }
+    ]
+  },
+  "crate_land": {
+    "subtitle": "subtitles.airdrop_supply_drops.crate_land",
+    "sounds": [
+      {
+        "name": "airdrop_supply_drops:crate_land",
+        "preload": true
+      }
+    ]
+  },
+  "descent_wind": {
+    "subtitle": "subtitles.airdrop_supply_drops.descent_wind",
+    "sounds": [
+      {
+        "name": "airdrop_supply_drops:descent_wind",
+        "preload": true
+      }
+    ]
+  }
+}

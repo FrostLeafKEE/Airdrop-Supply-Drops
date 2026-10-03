@@ -1,0 +1,44 @@
+# Build tools and local caches
+.gradle/
+.gradle-user/
+build/
+.audio-tools/
+tooling/
+
+# Development worlds and verification logs
+run/
+run-*/
+verification/
+*.log
+*.tmp
+
+# IDE and OS files
+.idea/
+.vscode/
+.settings/
+.classpath
+.project
+*.iml
+*.launch
+bin/
+out/
+Thumbs.db
+.DS_Store
+
+# Private notes and machine-specific launchers
+DESIGN.md
+TASKS-*.md
+HANDOFF-*.md
+PROGRESS-*.md
+ACCEPTANCE-*.md
+MANUAL-ACCEPTANCE.md
+MIGRATION-*.md
+Start-Airdrop.*
+启动空投测试.cmd
+
+# Local credentials and environment
+.env
+.env.*
+.gh-*/
+*.pem
+*.key

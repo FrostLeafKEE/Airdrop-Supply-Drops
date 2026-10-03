@@ -1,0 +1,7 @@
+{
+  "parent": "airdrop_supply_drops:block/airdrop_crate",
+  "textures": {
+    "label": "airdrop_supply_drops:block/crate_food"
+  }
+}
+

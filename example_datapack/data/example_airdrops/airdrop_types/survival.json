@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "display_name": {
+    "text": "Survival Ration Airdrop"
+  },
+  "weight": 2,
+  "loot_table": "example_airdrops:airdrop/survival",
+  "appearance": "food"
+}

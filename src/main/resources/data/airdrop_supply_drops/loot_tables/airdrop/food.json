@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:chest",
+  "pools": [
+    {
+      "rolls": {
+        "min": 8,
+        "max": 14
+      },
+      "entries": [
+        {"type": "minecraft:loot_table", "name": "airdrop_supply_drops:airdrop/food/common", "weight": 60},
+        {"type": "minecraft:loot_table", "name": "airdrop_supply_drops:airdrop/food/uncommon", "weight": 28},
+        {"type": "minecraft:loot_table", "name": "airdrop_supply_drops:airdrop/food/rare", "weight": 10},
+        {"type": "minecraft:loot_table", "name": "airdrop_supply_drops:airdrop/food/very_rare", "weight": 2}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:chest",
+  "pools": [
+    {
+      "rolls": 1,
+      "entries": [
+        {"type": "minecraft:item", "name": "minecraft:cooked_beef", "weight": 1, "functions": [{"function": "minecraft:set_count", "count": {"min": 2, "max": 4}}]},
+        {"type": "minecraft:item", "name": "minecraft:cooked_porkchop", "weight": 1, "functions": [{"function": "minecraft:set_count", "count": {"min": 2, "max": 4}}]},
+        {"type": "minecraft:item", "name": "minecraft:cooked_mutton", "weight": 1, "functions": [{"function": "minecraft:set_count", "count": {"min": 2, "max": 4}}]},
+        {"type": "minecraft:item", "name": "minecraft:cooked_rabbit", "weight": 1, "functions": [{"function": "minecraft:set_count", "count": {"min": 2, "max": 4}}]}
+      ]
+    }
+  ]
+}

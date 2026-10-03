@@ -1,0 +1,42 @@
+{
+  "aircraft_engine": {
+    "seconds": 8.0,
+    "channels": 1,
+    "sample_rate": 44100,
+    "peak": 0.782829999923706,
+    "rms": 0.2601090766240001,
+    "loop_boundary_step": 0.026459313565283082
+  },
+  "descent_wind": {
+    "seconds": 8.0,
+    "channels": 1,
+    "sample_rate": 44100,
+    "peak": 0.47177204489707947,
+    "rms": 0.10235041267308652,
+    "loop_boundary_step": 0.009071379899978638
+  },
+  "parachute_open": {
+    "seconds": 1.5,
+    "channels": 1,
+    "sample_rate": 44100,
+    "peak": 0.6775654554367065,
+    "rms": 0.06037210070298274,
+    "loop_boundary_step": null
+  },
+  "crate_land": {
+    "seconds": 1.0,
+    "channels": 1,
+    "sample_rate": 44100,
+    "peak": 0.8821083903312683,
+    "rms": 0.06239776931762353,
+    "loop_boundary_step": null
+  },
+  "flare_launch": {
+    "seconds": 0.65,
+    "channels": 1,
+    "sample_rate": 44100,
+    "peak": 0.7012200355529785,
+    "rms": 0.07392734547424752,
+    "loop_boundary_step": null
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:chest",
+  "pools": [
+    {
+      "rolls": 1,
+      "entries": [
+        {"type": "minecraft:item", "name": "minecraft:iron_ingot", "weight": 1, "functions": [{"function": "minecraft:set_count", "count": {"min": 2, "max": 4}}]},
+        {"type": "minecraft:item", "name": "minecraft:gold_nugget", "weight": 1, "functions": [{"function": "minecraft:set_count", "count": {"min": 2, "max": 4}}]}
+      ]
+    }
+  ]
+}

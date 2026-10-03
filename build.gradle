@@ -1,0 +1,191 @@
+plugins {
+    id 'eclipse'
+    id 'idea'
+    id 'maven-publish'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+}
+
+version = mod_version
+group = mod_group_id
+base {
+    archivesName = mod_id
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+
+sourceSets {
+    gameTest {
+        java.srcDir 'src/gametest/java'
+        resources.srcDir layout.buildDirectory.dir('generated/gametestResources')
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
+    }
+}
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+
+    copyIdeResources = true
+
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'info'
+
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                }
+            }
+        }
+
+        client {
+            property 'forge.enabledGameTestNamespaces', mod_id
+            if (project.hasProperty('restartCheck')) {
+                workingDirectory project.file('run-clientcheck')
+                property 'airdrop.restartCheck', project.property('restartCheck')
+                mods { "${mod_id}" { source sourceSets.gameTest } }
+            }
+            if (project.hasProperty('worldCheck')) {
+                workingDirectory project.file('run-clientcheck')
+                property 'airdrop.worldCheck', 'true'
+                mods { "${mod_id}" { source sourceSets.gameTest } }
+            }
+            if (project.hasProperty('clientCheck')) {
+                workingDirectory project.file('run-clientcheck')
+                property 'airdrop.clientCheck', 'true'
+                mods { "${mod_id}" { source sourceSets.gameTest } }
+            }
+        }
+
+        server {
+            property 'forge.enabledGameTestNamespaces', mod_id
+            args '--nogui'
+        }
+
+        gameTestServer {
+            workingDirectory project.file('run-gametest-supply')
+            property 'forge.enabledGameTestNamespaces', mod_id
+            mods {
+                "${mod_id}" { source sourceSets.gameTest }
+            }
+        }
+
+        data {
+            workingDirectory project.file('run')
+            args '--mod', mod_id, '--all', '--output', file('src/generated/resources/'), '--existing', file('src/main/resources/')
+        }
+    }
+}
+
+// A separate empty test structure; neither tests nor this fixture ship in the mod jar.
+tasks.register('generateGameTestStructure') {
+    def target = layout.buildDirectory.file('generated/gametestResources/data/airdrop_supply_drops/structures/empty.nbt')
+    outputs.file(target)
+    doLast {
+        def file = target.get().asFile
+        file.parentFile.mkdirs()
+        new DataOutputStream(new java.util.zip.GZIPOutputStream(new FileOutputStream(file))).withCloseable { out ->
+            out.writeByte(10); out.writeUTF('')
+            out.writeByte(3); out.writeUTF('DataVersion'); out.writeInt(3465)
+            out.writeByte(9); out.writeUTF('size'); out.writeByte(3); out.writeInt(3)
+            3.times { out.writeInt(5) }
+            out.writeByte(9); out.writeUTF('palette'); out.writeByte(10); out.writeInt(1)
+            out.writeByte(8); out.writeUTF('Name'); out.writeUTF('minecraft:air'); out.writeByte(0)
+            ['blocks', 'entities'].each { name ->
+                out.writeByte(9); out.writeUTF(name); out.writeByte(10); out.writeInt(0)
+            }
+            out.writeByte(0)
+        }
+    }
+}
+tasks.named('processGameTestResources').configure { dependsOn 'generateGameTestStructure' }
+tasks.register('installExampleGameTestPack', Copy) {
+    from 'example_datapack'
+    into 'run-gametest-supply/world/datapacks/airdrop_example'
+}
+tasks.matching { it.name == 'runGameTestServer' }.configureEach {
+    dependsOn 'installExampleGameTestPack'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+processResources {
+    filteringCharset = 'UTF-8'
+    var replaceProperties = [
+            minecraft_version: minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            forge_version: forge_version,
+            forge_version_range: forge_version_range,
+            loader_version_range: loader_version_range,
+            mod_id: mod_id,
+            mod_name: mod_name,
+            mod_license: mod_license,
+            mod_version: mod_version,
+            mod_authors: mod_authors,
+            mod_description: mod_description
+    ]
+
+    inputs.properties replaceProperties
+
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+        expand replaceProperties
+    }
+}
+
+jar {
+    from('LICENSE')
+    manifest {
+        attributes([
+                'Specification-Title'     : mod_id,
+                'Specification-Vendor'    : mod_authors,
+                'Specification-Version'   : '1',
+                'Implementation-Title'    : project.name,
+                'Implementation-Version'  : project.jar.archiveVersion,
+                'Implementation-Vendor'   : mod_authors,
+                'Implementation-Timestamp': new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
+        ])
+    }
+}
+
+tasks.register('releaseSources', Zip) {
+    archiveFileName = "${mod_id}-${mod_version}-sources.zip"
+    destinationDirectory = layout.buildDirectory.dir('libs')
+    from(projectDir) {
+        include 'src/**', 'gradle/**', 'gradlew', 'gradlew.bat', 'build.gradle', 'settings.gradle', 'gradle.properties'
+        include 'LICENSE', 'README.md', 'INTEGRATION.md', 'ID-MIGRATION.md', '.gitignore', '.gitattributes'
+        include 'example_datapack/**', 'art/**', 'audio/**'
+    }
+}
+
+tasks.register('releaseExampleDatapack', Zip) {
+    archiveFileName = "${mod_id}-example-datapack.zip"
+    destinationDirectory = layout.buildDirectory.dir('libs')
+    from('example_datapack')
+    from('INTEGRATION.md')
+}
+
+publishing {
+    publications {
+        register('mavenJava', MavenPublication) {
+            artifact jar
+        }
+    }
+    repositories {
+        maven {
+            name = 'local'
+            url = layout.buildDirectory.dir('repo')
+        }
+    }
+}

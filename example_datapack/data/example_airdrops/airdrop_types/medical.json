@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "display_name": {
+    "text": "医疗补给"
+  },
+  "weight": 1,
+  "loot_table": "example_airdrops:airdrop/medical",
+  "appearance": "food",
+  "required_mods": [],
+  "conditions": {
+    "dimensions": [
+      "minecraft:overworld"
+    ],
+    "biomes": [
+      "#minecraft:is_overworld"
+    ],
+    "weather": "clear",
+    "time": "day"
+  },
+  "settings": {
+    "min_drop_distance": 48,
+    "max_drop_distance": 128,
+    "landed_lifetime_seconds": 600,
+    "reset_on_rejoin": false,
+    "allow_liquid_landing": false
+  }
+}
