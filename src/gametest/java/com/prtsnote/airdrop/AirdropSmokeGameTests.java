@@ -25,8 +25,9 @@ import java.util.ArrayList;
 import java.util.UUID;
 
 @GameTestHolder("airdrop_supply_drops")
+@net.minecraftforge.gametest.PrefixGameTestTemplate(false)
 public final class AirdropSmokeGameTests {
-    @GameTest(template = "airdrop_supply_drops:empty", timeoutTicks = 40)
+    @GameTest(template = "empty", timeoutTicks = 40)
     public static void serverControlsSmokeVisibilityAndPacketColor(GameTestHelper helper) {
         helper.succeedWhen(() -> {
             var level = helper.getLevel();
