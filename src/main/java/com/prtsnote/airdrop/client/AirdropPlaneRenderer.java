@@ -4,7 +4,11 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import com.prtsnote.airdrop.server.AirdropEvents;
 import com.prtsnote.airdrop.world.entity.AirdropPlane;
+import com.prtsnote.airdrop.world.entity.AircraftAppearance;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.renderer.culling.Frustum;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
@@ -13,6 +17,8 @@ import net.minecraft.resources.ResourceLocation;
 public final class AirdropPlaneRenderer extends EntityRenderer<AirdropPlane> {
     private static final ResourceLocation BODY = TexturedBox.texture("aircraft_body"), FRAME = TexturedBox.texture("aircraft_frame"),
             GLASS = TexturedBox.texture("aircraft_glass"), RUBBER = TexturedBox.texture("aircraft_rubber");
+    private static final ResourceLocation WHITE = new ResourceLocation("minecraft", "textures/misc/white.png");
+    private static final ResourceLocation GLOW = new ResourceLocation("minecraft", "textures/particle/generic_7.png");
     public AirdropPlaneRenderer(EntityRendererProvider.Context context) { super(context); }
     @Override public boolean shouldRender(AirdropPlane plane, Frustum frustum, double x, double y, double z) {
         return plane.distanceToSqr(x, y, z) < 512 * 512;
@@ -22,29 +28,65 @@ public final class AirdropPlaneRenderer extends EntityRenderer<AirdropPlane> {
         double visualAge = plane.visualFlightAge(partial);
         pose.mulPose(Axis.YP.rotationDegrees(plane.heading()));
         pose.translate(0, 0, visualAge - AirdropEvents.RELEASE_TICK);
-        box(BODY, pose, buffers, light, -1, -0.75F, -5, 2, 1.5F, 10);
-        box(FRAME, pose, buffers, light, -0.75F, -0.5F, 5, 1.5F, 1, 1.5F);
-        box(GLASS, pose, buffers, light, -0.8F, 0.45F, 3, 1.6F, 0.4F, 1.8F);
-        for (float side : new float[]{-1, 1}) {
-            for (int window = 0; window < 3; window++) {
-                box(GLASS, pose, buffers, light, side < 0 ? -1.02F : 1, 0.05F, 0.5F - window * 1.2F, 0.02F, 0.45F, 0.65F);
-            }
-        }
-        box(FRAME, pose, buffers, light, -7, -0.2F, -0.75F, 14, 0.35F, 2.8F);
-        box(FRAME, pose, buffers, light, -3.5F, 0.4F, -4.8F, 7, 0.3F, 1.5F);
-        box(BODY, pose, buffers, light, -0.2F, 0.7F, -4.7F, 0.4F, 2, 1.6F);
-        for (float x : new float[]{-4, 4}) {
-            box(BODY, pose, buffers, light, x - 0.5F, -0.65F, 0, 1, 1, 2.6F);
-            pose.pushPose(); pose.translate(x, -0.15F, 2.7F);
+        drawParts(AircraftAppearance.BODY, pose, buffers, light);
+        for (float x : new float[]{-AircraftAppearance.ENGINE_X, AircraftAppearance.ENGINE_X}) {
+            pose.pushPose(); pose.translate(x, AircraftAppearance.ENGINE_Y, AircraftAppearance.PROPELLER_Z);
             pose.mulPose(Axis.ZP.rotationDegrees((float) (visualAge * 45)));
-            box(RUBBER, pose, buffers, light, -1.5F, -0.08F, 0, 3, 0.16F, 0.15F);
-            box(RUBBER, pose, buffers, light, -0.08F, -1.5F, 0, 0.16F, 3, 0.15F);
+            drawParts(AircraftAppearance.PROPELLER, pose, buffers, light);
             pose.popPose();
         }
+        for (var lamp : AircraftAppearance.LAMPS) drawLamp(lamp, visualAge, plane.heading(), pose, buffers);
         pose.popPose();
     }
-    private void box(ResourceLocation texture, PoseStack pose, MultiBufferSource buffers, int light, float x, float y, float z, float sx, float sy, float sz) {
-        TexturedBox.draw(texture, pose, buffers, light, x, y, z, sx, sy, sz);
+
+    private static void drawParts(java.util.List<AircraftAppearance.Part> parts, PoseStack pose, MultiBufferSource buffers, int light) {
+        for (var material : AircraftAppearance.Material.values()) {
+            ResourceLocation texture = switch (material) {
+                case BODY -> BODY; case FRAME -> FRAME; case GLASS -> GLASS; case RUBBER -> RUBBER;
+            };
+            VertexConsumer consumer = null;
+            for (var part : parts) if (part.material() == material) {
+                if (consumer == null) consumer = buffers.getBuffer(RenderType.entityCutoutNoCull(texture));
+                for (var quad : part.faces()) drawQuad(consumer, pose, quad, 255, 255, 255, 255, light);
+            }
+        }
+    }
+
+    private void drawLamp(AircraftAppearance.Lamp lamp, double age, float heading, PoseStack pose, MultiBufferSource buffers) {
+        double intensity = AircraftAppearance.intensity(lamp, age);
+        if (intensity <= 0.01) return;
+        int r = (lamp.rgb() >> 16) & 255, g = (lamp.rgb() >> 8) & 255, b = lamp.rgb() & 255;
+        var point = lamp.position();
+        pose.pushPose();
+        pose.translate(point.x(), point.y(), point.z());
+        var core = buffers.getBuffer(RenderType.entityTranslucentEmissive(WHITE));
+        int alpha = (int) (intensity * 255);
+        // Six emissive faces keep the fixture visible from above, below and behind.
+        pose.pushPose();
+        pose.scale(lamp.size(),lamp.size(),lamp.size());
+        for (var face : AircraftAppearance.LIGHT_CORE.faces()) drawQuad(core, pose, face, r,g,b,alpha,AircraftAppearance.FULL_BRIGHT);
+        pose.popPose();
+        // Undo the aircraft heading before orienting the soft glow toward the camera.
+        pose.mulPose(Axis.YP.rotationDegrees(-heading));
+        pose.mulPose(entityRenderDispatcher.cameraOrientation());
+        float radius = lamp.size() * 2.8F;
+        pose.scale(radius,radius,radius);
+        drawQuad(buffers.getBuffer(RenderType.entityTranslucentEmissive(GLOW)), pose, AircraftAppearance.LIGHT_HALO, r,g,b,(int) (intensity*135),AircraftAppearance.FULL_BRIGHT);
+        pose.popPose();
+    }
+
+    private static void drawQuad(VertexConsumer consumer, PoseStack pose, AircraftAppearance.Quad quad, int r, int g, int b, int alpha, int light) {
+        vertex(consumer, pose, quad.a(), quad.normal(), 0,1,r,g,b,alpha,light);
+        vertex(consumer, pose, quad.b(), quad.normal(), 0,0,r,g,b,alpha,light);
+        vertex(consumer, pose, quad.c(), quad.normal(), 1,0,r,g,b,alpha,light);
+        vertex(consumer, pose, quad.d(), quad.normal(), 1,1,r,g,b,alpha,light);
+    }
+
+    private static void vertex(VertexConsumer consumer, PoseStack pose, AircraftAppearance.Point point, AircraftAppearance.Point normal,
+                               float u, float v, int r, int g, int b, int alpha, int light) {
+        var transform = pose.last();
+        consumer.vertex(transform.pose(),point.x(),point.y(),point.z()).color(r,g,b,alpha)
+                .uv(u,v).overlayCoords(OverlayTexture.NO_OVERLAY).uv2(light).normal(transform.normal(),normal.x(),normal.y(),normal.z()).endVertex();
     }
     @Override public ResourceLocation getTextureLocation(AirdropPlane entity) { return BODY; }
 }
