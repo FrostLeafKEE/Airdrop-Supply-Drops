@@ -22,6 +22,8 @@ Two built-in supply types contain **vanilla items only**. Mineral crates offer c
 
 Right-click a landed crate to collect supplies from its **27-slot inventory**. You can take items out but cannot store your own items inside. Hoppers cannot insert or extract items. You may break a crate by hand to drop its remaining contents; the crate itself does not drop as an item.
 
+Version 1.0.5 adds landed crates to TACZ's interact-key whitelist tag. With a compatible TACZ version installed, holding a gun and aiming at a crate enables its interaction prompt and configured interact key (normally **O**). See the [TACZ integration notes](INTEGRATION.md#tacz-interact-key-105) for version and validation details.
+
 An emptied crate disappears immediately. Otherwise, it expires **five minutes after landing**, deleting any remaining supplies. Smoke stops when the crate is removed. The timer uses game ticks: pausing singleplayer pauses it, and unloading a chunk does not extend its deadline. By default, starting a new singleplayer session resets a remaining crate's timer; dedicated-server restarts preserve its deadline. Modpack settings can change the lifetime and singleplayer reset behavior.
 
 ## Customizing a modpack
@@ -30,7 +32,7 @@ Add your own supply types through datapacks, and use vanilla loot tables to choo
 
 Server configuration controls scheduling, event limits, and allowed dimensions. Resource packs can replace textures, sounds, and translations. Loot and settings are saved when a delivery starts, so `/reload` affects future drops without rerolling existing crates.
 
-See the [modpack integration guide](INTEGRATION.md) and [example datapack](example_datapack). The example adds medical and survival supplies and is installed separately. Datapacks and configuration are the supported integration surface; there is currently no stable Java API or KubeJS event API. Compatibility with specific third-party mods, including TACZ, has not been verified.
+See the [modpack integration guide](INTEGRATION.md) and [example datapack](example_datapack). The example adds medical and survival supplies and is installed separately. Datapacks and configuration are the supported integration surface; there is currently no stable Java API or KubeJS event API. TACZ interaction support follows its whitelist contract; in-game behavior and other third-party integrations still need verification with the installed versions.
 
 ## Installation and versions
 
