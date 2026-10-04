@@ -11,20 +11,21 @@ final class RedSmokeParticle extends TextureSheetParticle {
         super(level, x, y, z);
         pickSprite(sprites);
         setColor(options.red(), options.green(), options.blue());
-        lifetime = 65 + random.nextInt(25);
-        quadSize = 0.3F;
-        xd = (random.nextDouble() - 0.5) * 0.025;
-        yd = 0.055;
-        zd = (random.nextDouble() - 0.5) * 0.025;
+        lifetime = 160 + random.nextInt(20);
+        quadSize = 0.22F;
+        xd = (random.nextDouble() - 0.5) * 0.004;
+        yd = 0.14;
+        zd = (random.nextDouble() - 0.5) * 0.004;
         hasPhysics = false;
         alpha = 0;
     }
     @Override public void tick() {
         super.tick();
         float progress = age / (float) lifetime;
-        quadSize = 0.3F + progress * 1.4F;
-        alpha = 0.7F * Math.min(1, age / 8F) * (1 - progress);
-        yd = 0.055;
+        // Keep a narrow column and fade only near the top instead of widening into a cloud.
+        quadSize = 0.22F + progress * 0.28F;
+        alpha = 0.7F * Math.min(1, age / 6F) * Math.min(1, (1 - progress) / 0.25F);
+        yd = 0.14;
     }
     @Override public ParticleRenderType getRenderType() { return ParticleRenderType.PARTICLE_SHEET_TRANSLUCENT; }
 }

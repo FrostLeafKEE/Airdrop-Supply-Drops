@@ -96,6 +96,9 @@ public final class AirdropSmokeGameTests {
                 AirdropCrateBlockEntity.serverTick(level, pos, crate.getBlockState(), crate);
                 helper.assertTrue(packets.size() == 1 && ((SmokeParticleOptions) packets.get(0).getParticle()).color() == 0x0000FF,
                         "Landed crates must keep emitting the server-selected color with airborne smoke disabled");
+                var landedPacket = packets.get(0);
+                helper.assertTrue(landedPacket.getXDist() < 0.1F && landedPacket.getZDist() < 0.1F && landedPacket.getMaxSpeed() == 0,
+                        "The server must keep landed smoke close to the crate instead of scattering it sideways");
                 var saved = crate.saveWithFullMetadata(level.registryAccess());
                 helper.assertTrue(saved.getLong("smoke_ends_at") == level.getServer().overworld().getGameTime() + 6000,
                         "A newly landed crate must receive a five-minute smoke deadline");

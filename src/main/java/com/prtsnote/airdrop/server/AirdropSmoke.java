@@ -12,7 +12,7 @@ public final class AirdropSmoke {
         var smoke = new SmokeParticleOptions(AirdropConfig.smokeColor());
         for (var player : level.players()) {
             if (player.distanceToSqr(x, y, z) <= 256 * 256) {
-                level.sendParticles(player, smoke, true, x, y, z, 6, 0.18, airborne ? 0.3 : 0.1, 0.18, airborne ? 0.02 : 0);
+                level.sendParticles(player, smoke, true, x, y, z, 6, 0.06, airborne ? 0.3 : 0.04, 0.06, airborne ? 0.02 : 0);
             }
         }
     }

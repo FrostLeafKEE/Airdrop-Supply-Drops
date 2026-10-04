@@ -18,7 +18,6 @@ public final class AirdropPlaneRenderer extends EntityRenderer<AirdropPlane> {
     private static final ResourceLocation BODY = TexturedBox.texture("aircraft_body"), FRAME = TexturedBox.texture("aircraft_frame"),
             GLASS = TexturedBox.texture("aircraft_glass"), RUBBER = TexturedBox.texture("aircraft_rubber");
     private static final ResourceLocation WHITE = ResourceLocation.fromNamespaceAndPath("minecraft", "textures/misc/white.png");
-    private static final ResourceLocation GLOW = ResourceLocation.fromNamespaceAndPath("minecraft", "textures/particle/generic_7.png");
     public AirdropPlaneRenderer(EntityRendererProvider.Context context) { super(context); }
     @Override public boolean shouldRender(AirdropPlane plane, Frustum frustum, double x, double y, double z) {
         return plane.distanceToSqr(x, y, z) < 512 * 512;
@@ -59,19 +58,30 @@ public final class AirdropPlaneRenderer extends EntityRenderer<AirdropPlane> {
         var point = lamp.position();
         pose.pushPose();
         pose.translate(point.x(), point.y(), point.z());
-        var core = buffers.getBuffer(RenderType.entityTranslucentEmissive(WHITE));
+        // The eyes shader preserves emission from every view direction; the entity emissive
+        // shader still applies directional normal shading, dimming downward-facing lamps.
+        var core = buffers.getBuffer(RenderType.eyes(WHITE));
         int alpha = (int) (intensity * 255);
         // Six emissive faces keep the fixture visible from above, below and behind.
         pose.pushPose();
         pose.scale(lamp.size(),lamp.size(),lamp.size());
-        for (var face : AircraftAppearance.LIGHT_CORE.faces()) drawQuad(core, pose, face, r,g,b,alpha,AircraftAppearance.FULL_BRIGHT);
+        for (var face : AircraftAppearance.LIGHT_CORE.faces()) {
+            drawQuad(core, pose, face, (int) (r*intensity),(int) (g*intensity),(int) (b*intensity),alpha,AircraftAppearance.FULL_BRIGHT);
+        }
         pose.popPose();
         // Undo the aircraft heading before orienting the soft glow toward the camera.
         pose.mulPose(Axis.YP.rotationDegrees(-heading));
         pose.mulPose(entityRenderDispatcher.cameraOrientation());
-        float radius = lamp.size() * 2.8F;
+        float radius = lamp.size() * 3.2F;
         pose.scale(radius,radius,radius);
-        drawQuad(buffers.getBuffer(RenderType.entityTranslucentEmissive(GLOW)), pose, AircraftAppearance.LIGHT_HALO, r,g,b,(int) (intensity*135),AircraftAppearance.FULL_BRIGHT);
+        // Eyes uses ONE/ONE additive blending: fade RGB itself toward the halo edge.
+        // This keeps a soft circular glow without a smoke-shaped sprite or directional shading.
+        for (var face : AircraftAppearance.LIGHT_HALO) {
+            vertex(core,pose,face.a(),face.normal(),0.5F,0.5F,(int) (r*intensity*0.7),(int) (g*intensity*0.7),(int) (b*intensity*0.7),alpha,AircraftAppearance.FULL_BRIGHT);
+            vertex(core,pose,face.b(),face.normal(),0.5F,0.5F,0,0,0,0,AircraftAppearance.FULL_BRIGHT);
+            vertex(core,pose,face.c(),face.normal(),0.5F,0.5F,0,0,0,0,AircraftAppearance.FULL_BRIGHT);
+            vertex(core,pose,face.d(),face.normal(),0.5F,0.5F,0,0,0,0,AircraftAppearance.FULL_BRIGHT);
+        }
         pose.popPose();
     }
 

@@ -6,13 +6,13 @@
 
 ## Finding airdrops
 
-By default, a delivery is attempted every **20–30 minutes** in the **Overworld**. A living, non-spectator player is selected, and a safe landing point is sought **64–200 blocks** away. Listen for the aircraft and follow the red smoke to find the delivery.
+By default, a delivery is attempted every **20–30 minutes** in the **Overworld**. A living, non-spectator player is selected, and a safe landing point is sought **64–200 blocks horizontally** from that player's position when the event starts. The aircraft releases its cargo over this fixed point; it does not follow a moving player. Listen for the aircraft and follow the red smoke to find the delivery.
 
 The aircraft appears 600 blocks before the landing point, flies at 20 blocks per second, and leaves 400 blocks beyond it. It flies 60 blocks above the landing point. At normal 20 TPS, it releases three bursts of flares at 24, 26, and 28 seconds, drops its cargo at 30 seconds, and leaves at 50 seconds. The parachute opens during descent; by default, smoke starts after landing. The server can change its color and enable smoke during descent. Drops can land above water, lava, and other fluids without replacing the fluid blocks. Visibility depends on client render distance and the server's loaded chunks.
 
 Crates accelerate under gravity after release, slow as the parachute opens, then descend at a steady **2.4 blocks per second**. Client interpolation fills the movement between server updates; landing and cargo transfer remain server-controlled.
 
-The aircraft has a tapered fuselage, six-pane wraparound cockpit glazing with fitted frames, swept wings, detailed engine nacelles and four-bladed propellers. Its 128×128 olive skin and blue-gray glass use repeating surface UVs, with panel seams, small rivets, subtle paint wear and restrained reflections. Red and green navigation lights mark its wing tips; white wing-tip and tail strobes flash twice every 1.5 seconds, with alternating red beacons above and below the fuselage. The lights remain bright in darkness so you can follow night deliveries.
+The aircraft has a tapered fuselage, six-pane wraparound cockpit glazing with fitted frames, swept wings, detailed engine nacelles and four-bladed propellers. Its 128×128 olive skin and blue-gray glass use repeating surface UVs, with panel seams, small rivets, subtle paint wear and restrained reflections. Exposed red and green navigation lights mark its wing tips, and a steady white tail light remains visible from below. White wing-tip and tail strobes flash twice every 1.5 seconds, with alternating red beacons above and below the fuselage. The lights use emission without directional shading and a soft circular glow so you can follow night deliveries from the ground.
 
 Only one supply aircraft may be in flight across the server. Its departure at 50 seconds permits another event even if previous cargo is still descending or landed crates remain. An overdue automatic check waits for departure; if no suitable player, type or landing area is available, the scheduler retries after one minute.
 
@@ -24,7 +24,7 @@ Right-click a landed crate to collect supplies from its **27-slot inventory**. Y
 
 Version 1.0.5 adds landed crates to TACZ's interact-key whitelist tag. With a compatible TACZ version installed, holding a gun and aiming at a crate enables its interaction prompt and configured interact key (normally **O**). See the [TACZ integration notes](INTEGRATION.md#tacz-interact-key-105) for version and validation details.
 
-Landed crates and unclaimed supplies remain indefinitely, including after being emptied, after chunk unloading, and across restarts. Smoke stops when the crate is emptied or **five minutes after landing**, whichever happens first; the crate and supplies remain. Smoke uses an absolute game-tick deadline, so unloading or restarting does not extend it, while pausing singleplayer pauses game time. Older saved crate expiration fields no longer delete crates.
+Landed crates and unclaimed supplies remain indefinitely, including after being emptied, after chunk unloading, and across restarts. A narrow smoke column rises above the crate to help locate it from a distance; particle lifetime and upward speed produce a plume roughly 20 blocks tall with a fading top. Smoke stops when the crate is emptied or **five minutes after landing**, whichever happens first; the crate and supplies remain. Smoke uses an absolute game-tick deadline, so unloading or restarting does not extend it, while pausing singleplayer pauses game time. Older saved crate expiration fields no longer delete crates.
 
 ## Customizing a modpack
 
