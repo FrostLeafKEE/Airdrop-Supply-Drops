@@ -21,15 +21,27 @@ public final class AircraftAppearance {
     public static final List<Part> BODY = body();
     public static final List<Part> PROPELLER = propeller();
     public static final List<Lamp> LAMPS = List.of(
-            new Lamp("port_navigation", new Point(8.83F, 0.72F, -0.46F), 0xFF3024, 0.20F, Pattern.NAVIGATION, 0),
-            new Lamp("starboard_navigation", new Point(-8.83F, 0.72F, -0.46F), 0x35FF78, 0.20F, Pattern.NAVIGATION, 0),
-            new Lamp("port_strobe", new Point(8.83F, 0.76F, -0.92F), 0xFFFFFF, 0.24F, Pattern.STROBE, 0),
-            new Lamp("starboard_strobe", new Point(-8.83F, 0.76F, -0.92F), 0xFFFFFF, 0.24F, Pattern.STROBE, 0),
-            new Lamp("tail_strobe", new Point(0, 3.21F, -7.16F), 0xFFFFFF, 0.23F, Pattern.STROBE, 2),
-            new Lamp("upper_beacon", new Point(0, 1.19F, -0.4F), 0xFF3524, 0.24F, Pattern.BEACON, 0),
-            new Lamp("lower_beacon", new Point(0, -1.17F, 0.4F), 0xFF3524, 0.24F, Pattern.BEACON, 10));
+            new Lamp("port_navigation", new Point(9.16F, 0.70F, -0.43F), 0xFF3024, 0.28F, Pattern.NAVIGATION, 0),
+            new Lamp("starboard_navigation", new Point(-9.16F, 0.70F, -0.43F), 0x35FF78, 0.28F, Pattern.NAVIGATION, 0),
+            new Lamp("port_strobe", new Point(9.16F, 0.70F, -1.02F), 0xFFFFFF, 0.34F, Pattern.STROBE, 0),
+            new Lamp("starboard_strobe", new Point(-9.16F, 0.70F, -1.02F), 0xFFFFFF, 0.34F, Pattern.STROBE, 0),
+            new Lamp("tail_strobe", new Point(0, 3.28F, -7.33F), 0xFFFFFF, 0.30F, Pattern.STROBE, 2),
+            new Lamp("upper_beacon", new Point(0, 1.30F, -0.4F), 0xFF3524, 0.34F, Pattern.BEACON, 0),
+            new Lamp("lower_beacon", new Point(0, -1.33F, 0.4F), 0xFF3524, 0.34F, Pattern.BEACON, 10),
+            new Lamp("tail_navigation", new Point(0, 0.25F, -7.46F), 0xFFFFFF, 0.28F, Pattern.NAVIGATION, 0));
     public static final Part LIGHT_CORE = box(Material.FRAME, -0.5F, -0.5F, -0.5F, 1, 1, 1);
-    public static final Quad LIGHT_HALO = quad(p(-1,-1,0), p(1,-1,0), p(1,1,0), p(-1,1,0));
+    public static final List<Quad> LIGHT_HALO = lightHalo();
+
+    private static List<Quad> lightHalo() {
+        var faces = new ArrayList<Quad>();
+        for (int segment = 0; segment < 16; segment++) {
+            double first = segment * Math.PI / 8, next = (segment + 1) * Math.PI / 8;
+            var a = p((float) Math.cos(first), (float) Math.sin(first), 0);
+            var b = p((float) Math.cos(next), (float) Math.sin(next), 0);
+            faces.add(quad(p(0,0,0), a, b, b));
+        }
+        return List.copyOf(faces);
+    }
 
     public static double intensity(Lamp lamp, double flightAge) {
         if (!Double.isFinite(flightAge)) return 0;
@@ -38,8 +50,8 @@ public final class AircraftAppearance {
         double age = flightAge - lamp.offset;
         double phase = age - Math.floor(age / period) * period;
         if (lamp.pattern == Pattern.STROBE) return phase < 2 || (phase >= 4 && phase < 6) ? 1 : 0;
-        if (phase >= 4) return 0;
-        double pulse = Math.sin(Math.PI * phase / 4);
+        if (phase >= 8) return 0;
+        double pulse = Math.sin(Math.PI * phase / 8);
         return pulse * pulse;
     }
 
@@ -87,6 +99,7 @@ public final class AircraftAppearance {
         parts.add(box(Material.FRAME, -0.04F, 0.72F, 2.96F, 0.08F, 0.37F, 0.28F));
         parts.add(box(Material.RUBBER, -0.16F, 1.035F, -0.57F, 0.32F, 0.08F, 0.34F));
         parts.add(box(Material.RUBBER, -0.16F, -1.095F, 0.23F, 0.32F, 0.08F, 0.34F));
+        parts.add(box(Material.RUBBER, -0.18F, 0.07F, -7.35F, 0.36F, 0.36F, 0.17F));
         return List.copyOf(parts);
     }
 

@@ -6,6 +6,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 
@@ -60,8 +61,8 @@ public final class AirdropAircraftGameTests {
                 "White flashes must repeat every 1.5 seconds at 20 TPS");
         var upper = AircraftAppearance.LAMPS.get(5);
         var lower = AircraftAppearance.LAMPS.get(6);
-        helper.assertTrue(AircraftAppearance.intensity(upper,2) > 0.99 && AircraftAppearance.intensity(lower,2) == 0
-                && AircraftAppearance.intensity(upper,12) == 0 && AircraftAppearance.intensity(lower,12) > 0.99,
+        helper.assertTrue(AircraftAppearance.intensity(upper,4) > 0.99 && AircraftAppearance.intensity(lower,4) == 0
+                && AircraftAppearance.intensity(upper,14) == 0 && AircraftAppearance.intensity(lower,14) > 0.99,
                 "Upper and lower red beacons must alternate instead of lighting the whole aircraft together");
         var plane = ModEntities.PLANE.get().create(helper.getLevel());
         plane.configure(UUID.randomUUID(), helper.absolutePos(BlockPos.ZERO), 137, 184);
@@ -76,5 +77,41 @@ public final class AirdropAircraftGameTests {
             }
         }
         helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void navigationAndBellyLightsAreUnobstructedFromBelow(GameTestHelper helper) {
+        var observer = new Vec3(0, -60, 0);
+        for (String name : new String[]{"port_navigation", "starboard_navigation", "port_strobe", "starboard_strobe", "lower_beacon", "tail_navigation"}) {
+            var lamp = AircraftAppearance.LAMPS.stream().filter(value -> value.name().equals(name)).findFirst().orElseThrow();
+            var direction = vector(lamp.position()).subtract(observer);
+            for (var part : AircraftAppearance.BODY) for (var face : part.faces()) {
+                helper.assertTrue(!intersects(observer,direction,face.a(),face.b(),face.c())
+                                && !intersects(observer,direction,face.a(),face.c(),face.d()),
+                        name + " must not be hidden behind the hull, wing or lamp housing from below");
+            }
+            if (lamp.pattern() == AircraftAppearance.Pattern.NAVIGATION) {
+                for (int tick = 0; tick < 40; tick++) helper.assertTrue(AircraftAppearance.intensity(lamp,tick+0.5) == 1,
+                        "Steady navigation lights must show the aircraft between flashes");
+            }
+        }
+        helper.succeed();
+    }
+
+    private static Vec3 vector(AircraftAppearance.Point point) { return new Vec3(point.x(),point.y(),point.z()); }
+
+    private static boolean intersects(Vec3 origin, Vec3 direction, AircraftAppearance.Point a, AircraftAppearance.Point b, AircraftAppearance.Point c) {
+        var edge1 = vector(b).subtract(vector(a));
+        var edge2 = vector(c).subtract(vector(a));
+        var cross = direction.cross(edge2);
+        double determinant = edge1.dot(cross);
+        if (Math.abs(determinant) < 1e-9) return false;
+        var offset = origin.subtract(vector(a));
+        double u = offset.dot(cross) / determinant;
+        if (u < 0 || u > 1) return false;
+        var other = offset.cross(edge1);
+        double v = direction.dot(other) / determinant;
+        double fraction = edge2.dot(other) / determinant;
+        return v >= 0 && u+v <= 1 && fraction > 1e-5 && fraction < 1-1e-5;
     }
 }

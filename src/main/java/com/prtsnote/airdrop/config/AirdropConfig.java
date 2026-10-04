@@ -68,7 +68,7 @@ public final class AirdropConfig {
     }
 
     public static void onConfigReloading(ModConfigEvent.Reloading event) {
-        if (event.getConfig().getSpec() == SPEC) {
+        if (event.getConfig().getSpec() == SPEC && SPEC.isLoaded()) {
             validateRelationships();
             var server = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
             if (server != null) server.execute(() -> {
