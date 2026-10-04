@@ -177,6 +177,18 @@ Definitions are checked at startup and after `/reload`. Invalid types are exclud
 
 Checks cover field types/ranges, resolved distances, dimensions, the server dimension whitelist, biomes, nonempty dimension/biome/item tags, tables, standard item entries, missing subtables, and cycles. Diagnostics identify the type, server config, and, when possible, the loot field. If Minecraft rejects a table or tag before this mod can inspect it, check `logs/latest.log` for the parse error. Custom entries/functions/conditions are validated by Minecraft or their owning mod; this command is not a complete third-party validator.
 
+## TACZ interact key (1.0.5+)
+
+TACZ uses its own whitelist to decide whether to show the interaction prompt and let the interact key trigger normal item/block use. Its official 1.20.1 implementation checks the block tag `tacz:interact_key/whitelist`; having an inventory or right-click handler alone does not qualify a block. See its [whitelist predicate](https://github.com/MCModderAnchor/TACZ/blob/b482eff8c94a733ac8d0910193fca3893954027c/src/main/java/com/tacz/guns/config/util/InteractKeyConfigRead.java) and [key handler](https://github.com/MCModderAnchor/TACZ/blob/b482eff8c94a733ac8d0910193fca3893954027c/src/main/java/com/tacz/guns/client/input/InteractKey.java).
+
+The mod JAR appends `airdrop_supply_drops:airdrop_crate` to that tag using `replace: false`, preserving other packs' whitelist entries. All landed supply types share this block ID, so mineral, food, and custom crates are covered. No TACZ classes or required dependency are added; the tag can load when TACZ is absent. Aircraft and descending cargo are not interactive containers.
+
+This Minecraft 1.21.1 branch places the tag at `data/tacz/tags/block/interact_key/whitelist.json`. The 1.20.1 branch uses `tags/blocks`. The referenced official TACZ implementation is for Forge 1.20.1; this branch supplies the corresponding 1.21.1 tag for ports that retain the same contract. A specific 1.21.1 port has not been verified.
+
+Install the matching 1.0.5 JAR on both client and server, then create mineral and food crates with the administrator `crate` commands. Holding a TACZ gun and aiming at each landed crate should show TACZ's configured interact key (default O); pressing it should open the usual 27-slot, take-only menu. Check a chest or villager too, and verify empty-hand right-click still opens the crate. The upstream predicate and packaging have been checked; the real prompt and key action still require this client test.
+
+TACZ's block blacklist takes precedence over the whitelist. A later datapack using `replace: true` can also remove this entry. If other interaction prompts work but crates still do not, inspect TACZ's `InteractKeyBlacklistBlocks`, `tacz:interact_key/blacklist`, and overrides of `tacz:interact_key/whitelist`.
+
 ## Resource packs and persistence
 
 Client resources use `assets/airdrop_supply_drops/`. Follow `src/main/resources/assets/airdrop_supply_drops/` to replace textures, sounds, block models, and translations. Java-defined entity geometry has no arbitrary model-loading interface. The server's `validate` command does not check resource packs.
