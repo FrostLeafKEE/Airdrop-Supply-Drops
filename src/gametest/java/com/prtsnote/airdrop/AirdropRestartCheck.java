@@ -20,7 +20,7 @@ import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
-/** Two separate JVM runs: seed a saved world, then verify a real five-minute session. */
+/** Optional two-JVM client probe: persistent crates, contents and absolute smoke deadlines. */
 @Mod.EventBusSubscriber(modid = "airdrop_supply_drops", value = Dist.CLIENT)
 public final class AirdropRestartCheck {
     private static final BlockPos NEAR = new BlockPos(0, 180, 0), DEBUG = NEAR.east(3), FAR = new BlockPos(2048, 180, 0);
@@ -31,6 +31,7 @@ public final class AirdropRestartCheck {
     private static int clientTicks;
     private static CompoundTag proof;
     private static java.util.UUID id;
+    private static long resumedAt;
 
     private static CompoundTag inventory(AirdropCrateBlockEntity crate) {
         var items = net.minecraft.core.NonNullList.withSize(27, net.minecraft.world.item.ItemStack.EMPTY);
@@ -47,8 +48,7 @@ public final class AirdropRestartCheck {
             var level = server.overworld();
             var manager = AirdropEvents.get(server);
             long now = AirdropEvents.now(server);
-            var session = AirdropServer.session(server);
-            long elapsed = now - session.startedAt();
+            long elapsed = now - resumedAt;
             if (!prepared) {
                 var player = server.getPlayerList().getPlayers().get(0);
                 player.setGameMode(GameType.SPECTATOR);
@@ -66,57 +66,52 @@ public final class AirdropRestartCheck {
                     manager.landed(server, id, NEAR);
                     var crate = (AirdropCrateBlockEntity) level.getBlockEntity(NEAR);
                     crate.bindEvent(id);
-                    manager.find(id).deadline = now + 1200;
-                    manager.setDirty();
-                    ((AirdropCrateBlockEntity) level.getBlockEntity(DEBUG)).setRemainingTicks(1200);
-                    ((AirdropCrateBlockEntity) level.getBlockEntity(FAR)).setRemainingTicks(1200);
                     proof = new CompoundTag();
-                    proof.putUUID("session", session.id()); proof.putUUID("event", id);
+                    proof.putUUID("event", id);
                     proof.put("near", inventory(crate));
                     proof.put("debug", inventory((AirdropCrateBlockEntity) level.getBlockEntity(DEBUG)));
                     proof.put("far", inventory((AirdropCrateBlockEntity) level.getBlockEntity(FAR)));
+                    proof.putLong("smoke_ends_at",crate.saveWithFullMetadata().getLong("smoke_ends_at"));
                     NbtIo.writeCompressed(proof, PROOF);
-                    LogUtils.getLogger().info("AIRDROP_RESTART_SEED_READY: 3 crates saved with 1200 ticks; session={}", session.id());
+                    LogUtils.getLogger().info("AIRDROP_RESTART_SEED_READY: persistent crates saved; smoke ends at {}",proof.getLong("smoke_ends_at"));
                     done = true;
                 } else {
                     proof = NbtIo.readCompressed(PROOF);
                     id = proof.getUUID("event");
-                    if (session.id().equals(proof.getUUID("session"))) throw new IllegalStateException("Not a new session");
-                    if (manager.find(id) == null || manager.find(id).deadline != session.startedAt() + 6000) {
-                        throw new IllegalStateException("Managed deadline was not reset to session start + 6000");
-                    }
                     if (level.hasChunkAt(FAR)) throw new IllegalStateException("Far crate must start unloaded");
-                    LogUtils.getLogger().info("AIRDROP_RESTART_RESET_CONFIRMED: new session={}, deadline={}", session.id(), manager.find(id).deadline);
+                    resumedAt = now;
+                    elapsed = 0;
+                    LogUtils.getLogger().info("AIRDROP_RESTART_RESUMED: smoke must end at original tick {}",proof.getLong("smoke_ends_at"));
                 }
                 prepared = true;
             }
             if (phase.equals("seed")) return;
-            if (elapsed < 5999) {
-                for (var pos : new BlockPos[]{NEAR, DEBUG}) {
-                    if (!(level.getBlockEntity(pos) instanceof AirdropCrateBlockEntity crate)) throw new IllegalStateException("Crate expired early");
-                    if (!inventory(crate).equals(proof.getCompound(pos.equals(NEAR) ? "near" : "debug"))) throw new IllegalStateException("Inventory changed after restart");
-                    if (crate.getRemainingTicks() != 6000 - elapsed) throw new IllegalStateException("Incorrect remaining time: " + crate.getRemainingTicks());
-                }
+            for (var pos : new BlockPos[]{NEAR, DEBUG}) {
+                if (!(level.getBlockEntity(pos) instanceof AirdropCrateBlockEntity crate)) throw new IllegalStateException("Persistent crate disappeared");
+                if (!inventory(crate).equals(proof.getCompound(pos.equals(NEAR) ? "near" : "debug"))) throw new IllegalStateException("Inventory changed after restart");
+                if (crate.saveWithFullMetadata().getLong("smoke_ends_at") != proof.getLong("smoke_ends_at")) throw new IllegalStateException("Restart reset smoke deadline");
             }
             if (!checkedFar && elapsed >= 1200) {
                 var crate = (AirdropCrateBlockEntity) level.getBlockEntity(FAR);
                 if (crate == null || !inventory(crate).equals(proof.getCompound("far"))) throw new IllegalStateException("Far inventory changed");
-                // Loading schedules the block entity onLoad callback for the next tick.
-                level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL, new net.minecraft.world.level.ChunkPos(FAR), 2, FAR);
+                // Keep the delayed chunk ticking to observe its persisted smoke deadline.
+                level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.FORCED,
+                        new net.minecraft.world.level.ChunkPos(FAR), 2, new net.minecraft.world.level.ChunkPos(FAR));
                 checkedFar = true;
             }
-            if (checkedFar && elapsed >= 1220 && elapsed < 5999) {
+            if (checkedFar && elapsed >= 1220) {
                 var crate = (AirdropCrateBlockEntity) level.getBlockEntity(FAR);
-                if (crate == null || crate.getRemainingTicks() != 6000 - elapsed) throw new IllegalStateException("Late loading extended deadline");
+                if (crate == null || crate.saveWithFullMetadata().getLong("smoke_ends_at") != proof.getLong("smoke_ends_at")) throw new IllegalStateException("Delayed chunk loading reset smoke deadline");
             }
-            if (elapsed > 0 && elapsed % 1200 == 0) LogUtils.getLogger().info("AIRDROP_RESTART_COUNTDOWN: elapsed={}, remaining={}", elapsed, 6000 - elapsed);
+            if (elapsed > 0 && elapsed % 1200 == 0) LogUtils.getLogger().info("AIRDROP_RESTART_PERSISTENCE: elapsed={}, smoke deadline={}",elapsed,proof.getLong("smoke_ends_at"));
             if (elapsed >= 6002) {
                 for (var pos : new BlockPos[]{NEAR, DEBUG, FAR}) {
-                    if (level.getBlockEntity(pos) != null) throw new IllegalStateException("Crate survived five minutes");
-                    if (!level.getEntitiesOfClass(ItemEntity.class, new AABB(pos).inflate(3)).isEmpty()) throw new IllegalStateException("Expiration scattered loot");
+                    if (!(level.getBlockEntity(pos) instanceof AirdropCrateBlockEntity crate) || crate.emitsSmoke()) throw new IllegalStateException("Crate disappeared or smoke continued after five minutes");
+                    if (!inventory(crate).equals(proof.getCompound(pos.equals(NEAR) ? "near" : pos.equals(DEBUG) ? "debug" : "far"))) throw new IllegalStateException("Permanent inventory changed");
+                    if (!level.getEntitiesOfClass(ItemEntity.class,new AABB(pos).inflate(3)).isEmpty()) throw new IllegalStateException("Smoke stopping scattered loot");
                 }
-                if (manager.find(id) != null) throw new IllegalStateException("Expired event retained capacity");
-                LogUtils.getLogger().info("AIRDROP_RESTART_CHECK_PASSED: real process restart, unchanged inventories, session-based 6000 ticks, delayed chunk loading, expiration without loot");
+                if (manager.find(id) != null) throw new IllegalStateException("Completed event was not retired");
+                LogUtils.getLogger().info("AIRDROP_RESTART_CHECK_PASSED: real process restart, persistent crates and inventories, original smoke deadlines, delayed chunk loading");
                 done = true;
             }
         } catch (Exception error) {

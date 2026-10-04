@@ -96,10 +96,19 @@ public final class AirdropSmokeGameTests {
                 AirdropCrateBlockEntity.serverTick(level, pos, crate.getBlockState(), crate);
                 helper.assertTrue(packets.size() == 1 && ((SmokeParticleOptions) packets.get(0).getParticle()).color() == 0x0000FF,
                         "Landed crates must keep emitting the server-selected color with airborne smoke disabled");
+                var saved = crate.saveWithFullMetadata();
+                helper.assertTrue(saved.getLong("smoke_ends_at") == level.getServer().overworld().getGameTime() + 6000,
+                        "A newly landed crate must receive a five-minute smoke deadline");
+                saved.putLong("smoke_ends_at", level.getServer().overworld().getGameTime());
+                crate.load(saved);
+                packets.clear();
+                AirdropCrateBlockEntity.serverTick(level,pos,crate.getBlockState(),crate);
+                helper.assertTrue(packets.isEmpty() && !crate.isEmpty() && level.getBlockEntity(pos) == crate,
+                        "Five minutes after landing, particle packets must stop while supplies and crate remain");
                 for (int slot = 0; slot < crate.getContainerSize(); slot++) crate.removeItemNoUpdate(slot);
                 packets.clear();
                 AirdropCrateBlockEntity.serverTick(level, pos, crate.getBlockState(), crate);
-                helper.assertTrue(packets.isEmpty() && level.getBlockState(pos).isAir(), "An emptied crate must stop smoke and disappear");
+                helper.assertTrue(packets.isEmpty() && level.getBlockEntity(pos) == crate, "An emptied crate must stop smoke and remain");
             } finally {
                 level.players().remove(observer);
                 observer.connection = previousConnection;

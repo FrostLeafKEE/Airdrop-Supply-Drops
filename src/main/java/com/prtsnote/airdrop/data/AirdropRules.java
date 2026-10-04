@@ -50,13 +50,10 @@ public final class AirdropRules {
         return dimensions.getHolder(key).map(holder -> holder.is(tag)).orElse(false);
     }
 
-    public record Overrides(Integer minDistance, Integer maxDistance, Integer lifetimeSeconds,
-                            Boolean resetOnRejoin, Boolean allowLiquidLanding) {
+    public record Overrides(Integer minDistance, Integer maxDistance, Boolean allowLiquidLanding) {
         public Settings resolve() {
             Settings settings = new Settings(minDistance == null ? AirdropConfig.MIN_DROP_DISTANCE.get() : minDistance,
                     maxDistance == null ? AirdropConfig.MAX_DROP_DISTANCE.get() : maxDistance,
-                    lifetimeSeconds == null ? AirdropConfig.LANDED_LIFETIME_SECONDS.get() : lifetimeSeconds,
-                    resetOnRejoin == null ? AirdropConfig.RESET_ON_REJOIN.get() : resetOnRejoin,
                     allowLiquidLanding == null ? AirdropConfig.ALLOW_LIQUID_LANDING.get() : allowLiquidLanding);
             if (settings.minDistance > settings.maxDistance) {
                 throw new IllegalArgumentException("settings.min_drop_distance exceeds max_drop_distance after inheriting server defaults");
@@ -65,27 +62,22 @@ public final class AirdropRules {
         }
     }
 
-    public record Settings(int minDistance, int maxDistance, int lifetimeSeconds,
-                           boolean resetOnRejoin, boolean allowLiquidLanding) {
+    public record Settings(int minDistance, int maxDistance, boolean allowLiquidLanding) {
         public CompoundTag save() {
             CompoundTag tag = new CompoundTag();
             tag.putInt("min_distance", minDistance);
             tag.putInt("max_distance", maxDistance);
-            tag.putInt("lifetime_seconds", lifetimeSeconds);
-            tag.putBoolean("reset_on_rejoin", resetOnRejoin);
             tag.putBoolean("allow_liquid_landing", allowLiquidLanding);
             return tag;
         }
 
         public static Settings load(CompoundTag tag) {
-            if (!tag.contains("lifetime_seconds")) return defaults();
-            return new Settings(tag.getInt("min_distance"), tag.getInt("max_distance"),
-                    Math.max(1, tag.getInt("lifetime_seconds")), tag.getBoolean("reset_on_rejoin"),
-                    tag.getBoolean("allow_liquid_landing"));
+            if (!tag.contains("min_distance") || !tag.contains("max_distance")) return defaults();
+            return new Settings(tag.getInt("min_distance"), tag.getInt("max_distance"), tag.getBoolean("allow_liquid_landing"));
         }
     }
 
-    public static Settings defaults() { return new Overrides(null, null, null, null, null).resolve(); }
+    public static Settings defaults() { return new Overrides(null, null, null).resolve(); }
 
     public static Conditions conditions(JsonObject json) {
         fields(json, Set.of("dimensions", "biomes", "weather", "time"), "conditions");
@@ -102,8 +94,10 @@ public final class AirdropRules {
         Integer min = optionalInt(json, "min_drop_distance", 0, 200);
         Integer max = optionalInt(json, "max_drop_distance", 0, 200);
         if (min != null && max != null && min > max) throw new IllegalArgumentException("settings.min_drop_distance exceeds max_drop_distance");
-        return new Overrides(min, max, optionalInt(json, "landed_lifetime_seconds", 1, Integer.MAX_VALUE),
-                optionalBoolean(json, "reset_on_rejoin"), optionalBoolean(json, "allow_liquid_landing"));
+        // Accept legacy fields so existing datapacks still load; they no longer limit crate lifetime.
+        optionalInt(json, "landed_lifetime_seconds", 1, Integer.MAX_VALUE);
+        optionalBoolean(json, "reset_on_rejoin");
+        return new Overrides(min, max, optionalBoolean(json, "allow_liquid_landing"));
     }
 
     public static void fields(JsonObject json, Set<String> allowed, String path) {

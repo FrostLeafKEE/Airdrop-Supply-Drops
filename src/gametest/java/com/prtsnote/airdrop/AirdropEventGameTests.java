@@ -102,7 +102,7 @@ public final class AirdropEventGameTests {
             var restored = AirdropEvents.load(saved);
             server.overworld().getDataStorage().set("airdrop_supply_drops_events", restored);
             restored.startSession(server);
-            helper.assertTrue(restored.find(id).settings.lifetimeSeconds() == 600 && !restored.find(id).settings.resetOnRejoin(), "Restart must preserve type settings");
+            helper.assertTrue(restored.find(id).settings.equals(type.settings().resolve()), "Restart must preserve captured type settings");
             helper.assertTrue(restored.find(id).flares == 2, "Reload must preserve flare progress");
             helper.assertTrue(restored.find(id).dropId().equals(originalDropId), "Reload must preserve cargo UUID");
         });
@@ -128,22 +128,30 @@ public final class AirdropEventGameTests {
             var departing = (com.prtsnote.airdrop.world.entity.AirdropPlane) level.getEntity(initial.planeId);
             helper.assertTrue(departing != null && Math.abs(departing.visualPosition().distanceTo(releasePoint) - 395) <= 2,
                     "Aircraft must continue nearly 400 blocks past the drop before disappearing");
+            helper.assertTrue(AirdropEvents.get(server).begin(level,pos.east(2),type) == null,
+                    "A second event must remain blocked until the aircraft departs");
         });
-        helper.runAfterDelay(AirdropEvents.DEPARTURE_TICK + 5, () -> helper.assertTrue(level.getEntity(initial.planeId) == null, "Plane must leave after its flight"));
+        helper.runAfterDelay(AirdropEvents.DEPARTURE_TICK + 5, () -> {
+            helper.assertTrue(level.getEntity(initial.planeId) == null, "Plane must leave after its flight");
+            var current = AirdropEvents.get(server);
+            helper.assertTrue(current.find(id).stage == AirdropEvents.Stage.FALLING, "First cargo must still be falling for this gate probe");
+            var second = current.begin(level,pos.east(2),type);
+            helper.assertTrue(second != null, "Aircraft departure must allow a new event while older cargo still falls");
+            current.cancel(server,second);
+        });
         helper.runAfterDelay(AirdropEvents.RELEASE_TICK + 560, () -> {
             var event = AirdropEvents.get(server).find(id);
-            helper.assertTrue(event != null && event.stage == AirdropEvents.Stage.LANDED, "Event must persist through landing; event=" + event
-                    + " block=" + level.getBlockState(pos) + " be=" + level.getBlockEntity(pos));
+            helper.assertTrue(event == null, "A completed flight and landing must retire their event record");
             var crate = (AirdropCrateBlockEntity) level.getBlockEntity(pos);
-            helper.assertTrue(event.deadline - AirdropEvents.now(server) > 11000, "Landed event must use the captured ten-minute lifetime");
             helper.assertTrue(crate != null && id.equals(crate.eventId()), "Landed crate must belong to the event");
             var contents = net.minecraft.core.NonNullList.withSize(27, ItemStack.EMPTY);
             net.minecraft.world.ContainerHelper.loadAllItems(originalCargo, contents);
             for (int i = 0; i < 27; i++) helper.assertTrue(ItemStack.matches(contents.get(i), crate.getItem(i)), "Recovery changed inventory at slot " + i);
-            helper.assertTrue(AirdropEvents.get(server).begin(level, pos.east(), type) == null, "Landed crate must retain active slot");
-            AirdropEvents.get(server).cancel(server, id);
-            helper.assertTrue(level.getBlockEntity(pos) == null && AirdropEvents.get(server).find(id) == null, "Cancel must clear crate and event");
-            helper.assertTrue(level.getEntitiesOfClass(ItemEntity.class, new AABB(pos).inflate(1)).isEmpty(), "Cancel must not drop loot");
+            var second = AirdropEvents.get(server).begin(level,pos.east(),type);
+            helper.assertTrue(second != null, "A landed crate must never occupy the flight slot");
+            AirdropEvents.get(server).cancel(server,second);
+            helper.assertTrue(level.getBlockEntity(pos) == crate, "Starting or cancelling another delivery must preserve the old crate");
+            helper.assertTrue(level.getEntitiesOfClass(ItemEntity.class,new AABB(pos).inflate(1)).isEmpty(), "Retiring an event must not scatter crate contents");
             helper.succeed();
         });
     }
@@ -171,6 +179,73 @@ public final class AirdropEventGameTests {
         helper.assertTrue(next >= now + 24000 && next <= now + 36000, "Default interval must be 20..30 minutes");
         var restored = AirdropEvents.load(scheduler.save(new CompoundTag()));
         helper.assertTrue(restored.nextEventAt() == next, "Restart must preserve next scheduled event");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", batch = "lifecycle")
+    public static void landingAndBreakingDoNotEndFlight(GameTestHelper helper) {
+        var level = helper.getLevel();
+        var server = level.getServer();
+        var manager = AirdropEvents.get(server);
+        for (var previous : manager.all()) manager.cancel(server,previous.id);
+        var pos = helper.absolutePos(new BlockPos(2,2,2));
+        level.setBlockAndUpdate(pos.below(),Blocks.STONE.defaultBlockState());
+        var type = AirdropTypes.all().get(new ResourceLocation("airdrop_supply_drops:mineral"));
+        var id = manager.begin(level,pos,type);
+        helper.assertTrue(id != null, "Flight probe must start");
+        helper.assertTrue(com.prtsnote.airdrop.server.AirdropServer.placeCrate(level,pos,type), "Early landing probe must place");
+        var crate = (AirdropCrateBlockEntity) level.getBlockEntity(pos);
+        crate.bindEvent(id);
+        manager.landed(server,id,pos);
+        helper.assertTrue(manager.begin(level,pos.east(),type) == null, "Landing before departure must not free the flight slot");
+        level.destroyBlock(pos,false);
+        helper.assertTrue(manager.find(id) != null && manager.hasFlightInProgress(server), "Breaking the crate must preserve its aircraft event");
+        var event = manager.find(id);
+        event.started = AirdropEvents.now(server) - AirdropEvents.DEPARTURE_TICK + 1;
+        event.deadline = AirdropEvents.now(server) - 1;
+        var saved = manager.save(new CompoundTag());
+        saved.putLong("next_event_at",AirdropEvents.now(server)-1);
+        saved.putInt("interval_min_seconds",com.prtsnote.airdrop.config.AirdropConfig.INTERVAL_MIN_SECONDS.get());
+        saved.putInt("interval_max_seconds",com.prtsnote.airdrop.config.AirdropConfig.INTERVAL_MAX_SECONDS.get());
+        var restored = AirdropEvents.load(saved);
+        helper.assertTrue(restored.hasFlightInProgress(server), "Restart must preserve a landed aircraft's final flight tick");
+        long overdue = restored.nextEventAt();
+        restored.schedule(server,AirdropEvents.now(server));
+        helper.assertTrue(restored.nextEventAt() == overdue, "A due automatic check must wait for departure without adding a retry interval");
+        manager.tick(server);
+        helper.assertTrue(manager.find(id) != null && manager.begin(level,pos.east(),type) == null,
+                "Old landed deadlines must not release or cancel an aircraft before departure");
+        event.started--;
+        manager.tick(server);
+        helper.assertTrue(manager.find(id) == null && !manager.hasFlightInProgress(server), "The final departure tick must retire a landed event");
+        var second = manager.begin(level,pos.east(),type);
+        helper.assertTrue(second != null, "Departure must permit another event");
+        manager.cancel(server,second);
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", batch = "lifecycle")
+    public static void changedServerIntervalReschedulesPendingCheck(GameTestHelper helper) {
+        var configMin = com.prtsnote.airdrop.config.AirdropConfig.INTERVAL_MIN_SECONDS;
+        var configMax = com.prtsnote.airdrop.config.AirdropConfig.INTERVAL_MAX_SECONDS;
+        int previousMin = configMin.get(), previousMax = configMax.get();
+        var server = helper.getLevel().getServer();
+        var manager = new AirdropEvents();
+        long time = AirdropEvents.now(server);
+        manager.schedule(server,time);
+        try {
+            configMin.set(15); configMax.set(15);
+            manager.schedule(server,time+1);
+            helper.assertTrue(manager.nextEventAt() == time+1+300, "Fixed server intervals must reset an existing pending check");
+            var restored = AirdropEvents.load(manager.save(new CompoundTag()));
+            restored.schedule(server,time+2);
+            helper.assertTrue(restored.nextEventAt() == manager.nextEventAt(), "Unchanged interval settings must preserve the scheduled time across restart");
+            configMax.set(30); configMin.set(30);
+            restored.schedule(server,time+3);
+            helper.assertTrue(restored.nextEventAt() == time+3+600, "Changing a running server's interval must take effect without waiting for the old timer");
+        } finally {
+            configMax.set(previousMax); configMin.set(previousMin);
+        }
         helper.succeed();
     }
 }

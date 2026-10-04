@@ -10,7 +10,7 @@
   "subtitles.airdrop_supply_drops.flare_launch": "飞机释放诱饵弹",
   "subtitles.airdrop_supply_drops.parachute_open": "降落伞展开",
   "subtitles.airdrop_supply_drops.crate_land": "空投箱落地",
-  "message.airdrop_supply_drops.limit_reached": "无法开始：已有 %s/%s 个活动空投，未清理的落地箱也占名额。用 /airdrop_supply_drops status 查看；取空箱子、等待到期或用 /airdrop_supply_drops cancel <UUID> 取消后重试。",
+  "message.airdrop_supply_drops.limit_reached": "无法开始：补给飞机尚未离场，请等待飞机消失后重试。已有落地空投箱不会阻止新的空投。",
   "message.airdrop_supply_drops.invalid_loot": "无法开始：战利品表 %s 不存在或无效，请检查数据包。",
   "message.airdrop_supply_drops.no_landing": "无法开始：在周围 %s～%s 格的已加载区域内未找到安全落点，请到开阔区域并等待区块加载后重试。",
   "message.airdrop_supply_drops.start_failed": "无法创建空投事件，请检查游戏日志。",

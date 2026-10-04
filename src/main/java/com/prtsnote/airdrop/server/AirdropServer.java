@@ -62,7 +62,8 @@ public final class AirdropServer {
                 }))
                 .then(Commands.literal("status").executes(context -> {
                     var manager = AirdropEvents.get(context.getSource().getServer());
-                    context.getSource().sendSuccess(() -> Component.literal("Active: " + manager.all().size()
+                    context.getSource().sendSuccess(() -> Component.literal("Aircraft in flight: " + manager.hasFlightInProgress(context.getSource().getServer())
+                            + "; pending deliveries: " + manager.all().size()
                             + "; next check in ticks: " + Math.max(0, manager.nextEventAt() - AirdropEvents.now(context.getSource().getServer()))), false);
                     for (var active : manager.all()) context.getSource().sendSuccess(() -> Component.literal(active.id + " "
                             + active.stage + " flares=" + active.flares + " " + active.dimension + " " + active.ground.toShortString()), false);
@@ -94,9 +95,8 @@ public final class AirdropServer {
                             var player = source.getPlayerOrException();
                             ServerLevel level = source.getLevel();
                             var manager = AirdropEvents.get(level.getServer());
-                            int activeCount = manager.all().size();
-                            if (activeCount >= AirdropConfig.MAX_ACTIVE_EVENTS.get()) {
-                                source.sendFailure(Component.translatable("message.airdrop_supply_drops.limit_reached", activeCount, AirdropConfig.MAX_ACTIVE_EVENTS.get()));
+                            if (manager.hasFlightInProgress(level.getServer())) {
+                                source.sendFailure(Component.translatable("message.airdrop_supply_drops.limit_reached"));
                                 return 0;
                             }
                             if (level.getServer().getLootData().getLootTable(type.lootTable()) == LootTable.EMPTY) {

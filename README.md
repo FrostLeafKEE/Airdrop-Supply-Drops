@@ -14,23 +14,23 @@ Crates accelerate under gravity after release, slow as the parachute opens, then
 
 The aircraft has a tapered fuselage, six-pane wraparound cockpit glazing with fitted frames, swept wings, detailed engine nacelles and four-bladed propellers. Its 128×128 olive skin and blue-gray glass use repeating surface UVs, with panel seams, small rivets, subtle paint wear and restrained reflections. Red and green navigation lights mark its wing tips; white wing-tip and tail strobes flash twice every 1.5 seconds, with alternating red beacons above and below the fuselage. The lights remain bright in darkness so you can follow night deliveries.
 
-The default limit is one active event across the server, including its landed crate. If no suitable player, loaded landing area, or event slot is available, the scheduler retries after one minute.
+Only one supply aircraft may be in flight across the server. Its departure at 50 seconds permits another event even if previous cargo is still descending or landed crates remain. An overdue automatic check waits for departure; if no suitable player, type or landing area is available, the scheduler retries after one minute.
 
 ## Collecting supplies
 
 Two built-in supply types contain **vanilla items only**. Mineral crates offer coal, copper, iron, gold, and rare diamonds; food crates offer cooked meats and other food. Loot is randomized, with rarer rewards appearing less often and in smaller quantities. The default mineral table has a 1% legendary weight **per roll** and makes 8–14 rolls per crate. Each successful legendary roll awards one diamond; this is not a 1% chance per crate.
 
-Right-click a landed crate to collect supplies from its **27-slot inventory**. You can take items out but cannot store your own items inside. Hoppers cannot insert or extract items. You may break a crate by hand to drop its remaining contents; the crate itself does not drop as an item.
+Right-click a landed crate to collect supplies from its **27-slot inventory**. You can take items out but cannot store your own items inside. Hoppers cannot insert or extract items. Mining a crate drops **four oak planks** plus any remaining supplies. Silk Touch and Fortune do not change the four-plank yield, and the crate cannot be obtained as an item or with pick-block.
 
 Version 1.0.5 adds landed crates to TACZ's interact-key whitelist tag. With a compatible TACZ version installed, holding a gun and aiming at a crate enables its interaction prompt and configured interact key (normally **O**). See the [TACZ integration notes](INTEGRATION.md#tacz-interact-key-105) for version and validation details.
 
-An emptied crate disappears immediately. Otherwise, it expires **five minutes after landing**, deleting any remaining supplies. Smoke stops when the crate is removed. The timer uses game ticks: pausing singleplayer pauses it, and unloading a chunk does not extend its deadline. By default, starting a new singleplayer session resets a remaining crate's timer; dedicated-server restarts preserve its deadline. Modpack settings can change the lifetime and singleplayer reset behavior.
+Landed crates and unclaimed supplies remain indefinitely, including after being emptied, after chunk unloading, and across restarts. Smoke stops when the crate is emptied or **five minutes after landing**, whichever happens first; the crate and supplies remain. Smoke uses an absolute game-tick deadline, so unloading or restarting does not extend it, while pausing singleplayer pauses game time. Older saved crate expiration fields no longer delete crates.
 
 ## Customizing a modpack
 
-Add your own supply types through datapacks, and use vanilla loot tables to choose items, weights, stack sizes, and independent reward probabilities. Custom tables can reference items from other installed mods. Type definitions support optional mod dependencies, automatic conditions for dimensions, biomes, weather, and time of day, and per-type landing distance, lifetime, rejoin behavior, and fluid landing settings.
+Add your own supply types through datapacks, and use vanilla loot tables to choose items, weights, stack sizes, and independent reward probabilities. Custom tables can reference items from other installed mods. Type definitions support optional mod dependencies, automatic conditions for dimensions, biomes, weather, and time of day, and per-type landing distance and fluid landing settings.
 
-Server configuration controls scheduling, event limits, and allowed dimensions. Resource packs can replace textures, sounds, and translations. Loot and settings are saved when a delivery starts, so `/reload` affects future drops without rerolling existing crates.
+Server configuration controls automatic intervals and allowed dimensions. In `<world>/serverconfig/airdrop_supply_drops-server.toml`, `interval_min_seconds = 1200` and `interval_max_seconds = 1800` give the default random 20–30-minute interval; set both to the same value for a fixed interval. Changing either value resets the pending check when the server config reloads. Resource packs can replace textures, sounds, and translations. Loot and settings are saved when a delivery starts, so `/reload` affects future drops without rerolling existing crates.
 
 See the [modpack integration guide](INTEGRATION.md) and [example datapack](example_datapack). The example adds medical and survival supplies and is installed separately. Datapacks and configuration are the supported integration surface; there is currently no stable Java API or KubeJS event API. TACZ interaction support follows its whitelist contract; in-game behavior and other third-party integrations still need verification with the installed versions.
 
@@ -63,9 +63,9 @@ Commands require operator permission level 2 or cheats in singleplayer:
 | `/airdrop_supply_drops spawn airdrop_supply_drops:food` | Start a food delivery. |
 | `/airdrop_supply_drops crate airdrop_supply_drops:food` | Place a food crate two blocks ahead for testing. |
 | `/airdrop_supply_drops status` | Show active event IDs, phases, and positions. |
-| `/airdrop_supply_drops cancel <event-uuid>` | Remove a delivery and its remaining contents. |
+| `/airdrop_supply_drops cancel <event-uuid>` | Cancel a pending delivery; completed event records have already retired. |
 
-`spawn` and `crate` require a player. They bypass automatic spawning conditions and the global dimension whitelist while preserving placement safety and type settings. `spawn` still respects the active-event limit. Run `/reload` before `validate` after editing datapack files.
+`spawn` and `crate` require a player. They bypass automatic spawning conditions and the global dimension whitelist while preserving placement safety and type settings. `spawn` still waits for any current aircraft to depart; `crate` places a block directly. Run `/reload` before `validate` after editing datapack files.
 
 ## Building from source
 

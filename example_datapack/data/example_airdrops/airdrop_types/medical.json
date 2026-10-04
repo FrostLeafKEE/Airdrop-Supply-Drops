@@ -20,8 +20,6 @@
   "settings": {
     "min_drop_distance": 48,
     "max_drop_distance": 128,
-    "landed_lifetime_seconds": 600,
-    "reset_on_rejoin": false,
     "allow_liquid_landing": false
   }
 }
