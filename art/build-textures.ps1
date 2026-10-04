@@ -17,15 +17,31 @@ try {
         $inset = if ($index -ge 12) { 10 } else { 2 }
         $rect = [System.Drawing.Rectangle]::new($x+$inset, $y+$inset, $right-$x-2*$inset, $bottom-$y-2*$inset)
         $size = if ($index -ge 12) { 32 } else { 64 }
+        # Refined aircraft materials have independent sources; do not overwrite them with atlas cells.
+        $override = switch ($tiles[$index]) {
+            'entity/aircraft_body' { 'source/aircraft-body-v2.png' }
+            'entity/aircraft_glass' { 'source/aircraft-glass-v2.png' }
+            default { $null }
+        }
+        $aircraftSource = $null
+        if ($null -ne $override) {
+            $aircraftSource = [System.Drawing.Bitmap]::new((Join-Path $PSScriptRoot $override))
+            $rect = [System.Drawing.Rectangle]::new(0,0,$aircraftSource.Width,$aircraftSource.Height)
+            $size = 128
+        }
         $output = [System.Drawing.Bitmap]::new($size, $size)
         $graphics = [System.Drawing.Graphics]::FromImage($output)
         try {
             $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::NearestNeighbor
             $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::Half
-            $graphics.DrawImage($source, [System.Drawing.Rectangle]::new(0,0,$size,$size), $rect, [System.Drawing.GraphicsUnit]::Pixel)
+            $inputImage = if ($null -ne $aircraftSource) { $aircraftSource } else { $source }
+            $graphics.DrawImage($inputImage, [System.Drawing.Rectangle]::new(0,0,$size,$size), $rect, [System.Drawing.GraphicsUnit]::Pixel)
             $destination = Join-Path $projectRoot ('src/main/resources/assets/airdrop_supply_drops/textures/' + $tiles[$index] + '.png')
             [System.IO.Directory]::CreateDirectory((Split-Path $destination -Parent)) | Out-Null
             $output.Save($destination, [System.Drawing.Imaging.ImageFormat]::Png)
-        } finally { $graphics.Dispose(); $output.Dispose() }
+        } finally {
+            $graphics.Dispose(); $output.Dispose()
+            if ($null -ne $aircraftSource) { $aircraftSource.Dispose() }
+        }
     }
 } finally { $source.Dispose() }

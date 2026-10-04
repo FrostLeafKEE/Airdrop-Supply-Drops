@@ -47,7 +47,7 @@ public final class AirdropPlaneRenderer extends EntityRenderer<AirdropPlane> {
             VertexConsumer consumer = null;
             for (var part : parts) if (part.material() == material) {
                 if (consumer == null) consumer = buffers.getBuffer(RenderType.entityCutoutNoCull(texture));
-                for (var quad : part.faces()) drawQuad(consumer, pose, quad, 255, 255, 255, 255, light);
+                for (var quad : part.faces()) drawTexturedQuad(consumer, pose, quad, light);
             }
         }
     }
@@ -73,6 +73,13 @@ public final class AirdropPlaneRenderer extends EntityRenderer<AirdropPlane> {
         pose.scale(radius,radius,radius);
         drawQuad(buffers.getBuffer(RenderType.entityTranslucentEmissive(GLOW)), pose, AircraftAppearance.LIGHT_HALO, r,g,b,(int) (intensity*135),AircraftAppearance.FULL_BRIGHT);
         pose.popPose();
+    }
+
+    private static void drawTexturedQuad(VertexConsumer consumer, PoseStack pose, AircraftAppearance.Quad quad, int light) {
+        vertex(consumer,pose,quad.a(),quad.normal(),quad.ua().u(),quad.ua().v(),255,255,255,255,light);
+        vertex(consumer,pose,quad.b(),quad.normal(),quad.ub().u(),quad.ub().v(),255,255,255,255,light);
+        vertex(consumer,pose,quad.c(),quad.normal(),quad.uc().u(),quad.uc().v(),255,255,255,255,light);
+        vertex(consumer,pose,quad.d(),quad.normal(),quad.ud().u(),quad.ud().v(),255,255,255,255,light);
     }
 
     private static void drawQuad(VertexConsumer consumer, PoseStack pose, AircraftAppearance.Quad quad, int r, int g, int b, int alpha, int light) {

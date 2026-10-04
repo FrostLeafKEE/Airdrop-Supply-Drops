@@ -8,7 +8,8 @@ public final class AircraftAppearance {
     public enum Material { BODY, FRAME, GLASS, RUBBER }
     public enum Pattern { NAVIGATION, STROBE, BEACON }
     public record Point(float x, float y, float z) {}
-    public record Quad(Point a, Point b, Point c, Point d, Point normal) {}
+    public record UV(float u, float v) {}
+    public record Quad(Point a, Point b, Point c, Point d, Point normal, UV ua, UV ub, UV uc, UV ud) {}
     public record Part(Material material, List<Quad> faces) {}
     public record Lamp(String name, Point position, int rgb, float size, Pattern pattern, double offset) {}
 
@@ -188,7 +189,17 @@ public final class AircraftAppearance {
         float ux = b.x-a.x, uy = b.y-a.y, uz = b.z-a.z, vx = c.x-a.x, vy = c.y-a.y, vz = c.z-a.z;
         float nx = uy*vz-uz*vy, ny = uz*vx-ux*vz, nz = ux*vy-uy*vx;
         float length = (float) Math.sqrt(nx*nx + ny*ny + nz*nz);
-        return new Quad(a,b,c,d,p(nx/length, ny/length, nz/length));
+        Point normal = p(nx/length, ny/length, nz/length);
+        return new Quad(a,b,c,d,normal,uv(a,normal),uv(b,normal),uv(c,normal),uv(d,normal));
+    }
+
+    private static UV uv(Point point, Point normal) {
+        // One tile per four model blocks: long panels repeat instead of stretching a whole texture.
+        // Model-space projection also gives shared triangle vertices the same texture coordinates.
+        float x = Math.abs(normal.x), y = Math.abs(normal.y), z = Math.abs(normal.z);
+        if (y >= x && y >= z) return new UV(point.x * 0.25F, point.z * 0.25F);
+        if (x >= z) return new UV(point.z * 0.25F, -point.y * 0.25F);
+        return new UV(point.x * 0.25F, -point.y * 0.25F);
     }
 
     private static Point p(float x, float y, float z) { return new Point(x,y,z); }
