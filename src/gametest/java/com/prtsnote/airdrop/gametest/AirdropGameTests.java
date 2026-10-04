@@ -106,28 +106,38 @@ public final class AirdropGameTests {
     }
 
     @GameTest(template = "airdrop_supply_drops:empty")
-    public static void reloadingDoesNotResetDeadline(GameTestHelper helper) {
+    public static void legacyDeadlineIsIgnoredAfterReload(GameTestHelper helper) {
         var crate = crate(helper);
-        crate.setRemainingTicks(10);
         var registries = helper.getLevel().registryAccess();
         var saved = crate.saveWithFullMetadata(registries);
+        saved.remove("smoke_ends_at");
+        saved.putInt("remaining_ticks", 0);
+        saved.putBoolean("timer_started", true);
+        saved.putLong("expires_at", 0);
+        saved.putUUID("event_id", java.util.UUID.randomUUID());
+        var inventory = net.minecraft.core.NonNullList.withSize(27, ItemStack.EMPTY);
+        net.minecraft.world.ContainerHelper.loadAllItems(saved, inventory, registries);
         helper.runAfterDelay(4, () -> {
             crate.loadWithComponents(saved, registries);
             crate.onLoad();
-            helper.assertTrue(crate.getRemainingTicks() <= 6, "Same-session reload must preserve absolute deadline");
         });
         helper.runAfterDelay(12, () -> {
-            helper.assertTrue(helper.getLevel().getBlockEntity(helper.absolutePos(POS)) == null, "Reload must not extend lifetime");
+            helper.assertTrue(helper.getLevel().getBlockEntity(helper.absolutePos(POS)) == crate, "Expired/orphaned legacy crates must survive reload");
+            for (int slot = 0; slot < 27; slot++) helper.assertTrue(ItemStack.matches(inventory.get(slot), crate.getItem(slot)), "Legacy expiry must preserve inventory");
+            helper.assertTrue(!crate.saveWithFullMetadata(registries).contains("expires_at"), "Resaving must discard the old expiration field");
             helper.succeed();
         });
     }
 
     @GameTest(template = "airdrop_supply_drops:empty")
-    public static void expiredCrateCannotScatterLoot(GameTestHelper helper) {
+    public static void retiredEventDoesNotPreventClaimingContents(GameTestHelper helper) {
         var crate = crate(helper);
-        crate.setRemainingTicks(0);
+        crate.clearContent();
+        crate.setItem(0, new ItemStack(Items.IRON_INGOT, 7));
+        crate.bindEvent(java.util.UUID.randomUUID());
         crate.dropContents(helper.getLevel(), helper.absolutePos(POS));
-        helper.assertTrue(itemsNear(helper).isEmpty(), "Expired contents cannot be claimed by breaking");
+        helper.assertTrue(itemsNear(helper).stream().mapToInt(entity -> entity.getItem().getCount()).sum() == 7,
+                "An orphaned or retired event must not make crate contents unavailable");
         helper.succeed();
     }
 
@@ -248,27 +258,36 @@ public final class AirdropGameTests {
     }
 
     @GameTest(template = "airdrop_supply_drops:empty")
-    public static void expirationDeletesLoot(GameTestHelper helper) {
+    public static void fiveMinuteSmokeDeadlineKeepsLoot(GameTestHelper helper) {
         var crate = crate(helper);
-        crate.setRemainingTicks(2);
+        var registries = helper.getLevel().registryAccess();
+        var saved = crate.saveWithFullMetadata(registries);
+        saved.putLong("smoke_ends_at", com.prtsnote.airdrop.server.AirdropEvents.now(helper.getLevel().getServer()) + 2);
+        crate.loadWithComponents(saved, registries);
+        helper.assertTrue(crate.emitsSmoke(), "Smoke must still be enabled just before five minutes");
         helper.runAfterDelay(4, () -> {
-            helper.assertTrue(helper.getLevel().getBlockEntity(helper.absolutePos(POS)) == null, "Expired crate must disappear");
-            helper.assertTrue(itemsNear(helper).isEmpty(), "Timeout must not scatter loot");
+            helper.assertTrue(helper.getLevel().getBlockEntity(helper.absolutePos(POS)) == crate && !crate.isEmpty(), "The smoke deadline must preserve the crate and supplies");
+            helper.assertTrue(!crate.emitsSmoke(), "Smoke must stop after five minutes");
+            var again = crate.saveWithFullMetadata(registries);
+            crate.loadWithComponents(again, registries); crate.onLoad();
+            helper.assertTrue(!crate.emitsSmoke(), "Reload must not restart expired smoke");
+            helper.assertTrue(itemsNear(helper).isEmpty(), "Smoke stopping must not scatter loot");
             helper.succeed();
         });
     }
 
     @GameTest(template = "airdrop_supply_drops:empty")
-    public static void emptyCrateDisappears(GameTestHelper helper) {
-        crate(helper).clearContent();
+    public static void emptyCrateRemains(GameTestHelper helper) {
+        var crate = crate(helper);
+        crate.clearContent();
         helper.runAfterDelay(2, () -> {
-            helper.assertTrue(helper.getLevel().getBlockEntity(helper.absolutePos(POS)) == null, "Empty crate must disappear");
+            helper.assertTrue(helper.getLevel().getBlockEntity(helper.absolutePos(POS)) == crate && !crate.emitsSmoke(), "An empty crate must remain without smoke");
             helper.succeed();
         });
     }
 
     @GameTest(template = "airdrop_supply_drops:empty")
-    public static void playerBreakScattersOnlyContents(GameTestHelper helper) {
+    public static void playerBreakScattersContentsAndPlanks(GameTestHelper helper) {
         var crate = crate(helper);
         crate.clearContent();
         crate.setItem(0, new ItemStack(Items.IRON_INGOT, 7));
@@ -276,9 +295,29 @@ public final class AirdropGameTests {
         var state = helper.getLevel().getBlockState(pos);
         state.getBlock().playerWillDestroy(helper.getLevel(), pos, state, helper.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL));
         helper.getLevel().destroyBlock(pos, true);
-        int count = itemsNear(helper).stream().map(ItemEntity::getItem).mapToInt(ItemStack::getCount).sum();
-        helper.assertTrue(count == 7 && itemsNear(helper).stream().allMatch(e -> e.getItem().is(Items.IRON_INGOT)),
-                "Breaking must drop seven ingots without a crate item");
+        int iron = itemsNear(helper).stream().map(ItemEntity::getItem).filter(stack -> stack.is(Items.IRON_INGOT)).mapToInt(ItemStack::getCount).sum();
+        int planks = itemsNear(helper).stream().map(ItemEntity::getItem).filter(stack -> stack.is(Items.OAK_PLANKS)).mapToInt(ItemStack::getCount).sum();
+        helper.assertTrue(iron == 7 && planks == 4 && itemsNear(helper).stream().allMatch(e -> e.getItem().is(Items.IRON_INGOT) || e.getItem().is(Items.OAK_PLANKS)),
+                "Breaking must scatter remaining supplies and exactly four planks without a crate item");
+        helper.succeed();
+    }
+
+    @GameTest(template = "airdrop_supply_drops:empty")
+    public static void miningToolsNeverRecoverCrate(GameTestHelper helper) {
+        var crate = crate(helper);
+        var pos = helper.absolutePos(POS);
+        var state = crate.getBlockState();
+        var silk = new ItemStack(Items.DIAMOND_AXE);
+        var fortune = new ItemStack(Items.DIAMOND_AXE);
+        var enchantments = helper.getLevel().registryAccess().registryOrThrow(net.minecraft.core.registries.Registries.ENCHANTMENT);
+        silk.enchant(enchantments.getHolderOrThrow(net.minecraft.world.item.enchantment.Enchantments.SILK_TOUCH), 1);
+        fortune.enchant(enchantments.getHolderOrThrow(net.minecraft.world.item.enchantment.Enchantments.FORTUNE), 3);
+        for (var tool : java.util.List.of(ItemStack.EMPTY, new ItemStack(Items.IRON_AXE), silk, fortune)) {
+            var drops = net.minecraft.world.level.block.Block.getDrops(state,helper.getLevel(),pos,crate,null,tool);
+            helper.assertTrue(drops.size() == 1 && drops.get(0).is(Items.OAK_PLANKS) && drops.get(0).getCount() == 4,
+                    "Hand, axe, Silk Touch and Fortune must yield exactly four planks");
+        }
+        helper.assertTrue(state.getBlock().getCloneItemStack(helper.getLevel(),pos,state).isEmpty(), "Picking the crate must not create a crate item");
         helper.succeed();
     }
 

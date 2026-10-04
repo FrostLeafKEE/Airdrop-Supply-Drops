@@ -67,10 +67,6 @@ public final class AirdropCrateBlock extends BaseEntityBlock {
         }
         BlockEntity blockEntity = level.getBlockEntity(pos);
         if (blockEntity instanceof AirdropCrateBlockEntity crate) {
-            if (crate.isExpired()) {
-                level.removeBlock(pos, false);
-                return InteractionResult.CONSUME;
-            }
             player.openMenu(crate);
             return InteractionResult.CONSUME;
         }
@@ -84,10 +80,6 @@ public final class AirdropCrateBlock extends BaseEntityBlock {
         }
         BlockEntity blockEntity = level.getBlockEntity(pos);
         if (blockEntity instanceof AirdropCrateBlockEntity crate) {
-            if (crate.isExpired()) {
-                level.removeBlock(pos, false);
-                return net.minecraft.world.ItemInteractionResult.CONSUME;
-            }
             player.openMenu(crate);
             return net.minecraft.world.ItemInteractionResult.CONSUME;
         }
@@ -107,16 +99,20 @@ public final class AirdropCrateBlock extends BaseEntityBlock {
 
     @Override
     protected List<ItemStack> getDrops(BlockState state, LootParams.Builder builder) {
-        return List.of();
+        // Silk Touch and Fortune cannot recover a crate or change its salvage yield.
+        return List.of(new ItemStack(net.minecraft.world.item.Items.OAK_PLANKS, 4));
+    }
+
+    @Override
+    public ItemStack getCloneItemStack(net.minecraft.world.level.LevelReader level, BlockPos pos, BlockState state) {
+        return ItemStack.EMPTY;
     }
 
     @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean isMoving) {
         if (state.getBlock() != newState.getBlock()) {
             BlockEntity blockEntity = level.getBlockEntity(pos);
-            if (!level.isClientSide && blockEntity instanceof AirdropCrateBlockEntity crate && crate.eventId() != null) {
-                com.prtsnote.airdrop.server.AirdropEvents.get(level.getServer()).forget(level.getServer(), crate.eventId());
-            }
+            // Removing a landed crate must not end a flight that has not departed yet.
             if (blockEntity != null) {
                 blockEntity.setRemoved();
             }

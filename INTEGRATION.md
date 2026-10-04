@@ -14,7 +14,7 @@ Copy `example_datapack` into `<world>/datapacks/`. Its root must contain `pack.m
 /airdrop_supply_drops spawn example_airdrops:survival
 ```
 
-`crate` places a crate two blocks ahead; `spawn` starts an aircraft event and respects the active-event limit. Both player-only administrator commands bypass automatic conditions and the global dimension whitelist. Use automatic scheduling to test environmental conditions.
+`crate` places a crate two blocks ahead; `spawn` starts an aircraft event and waits for any current aircraft to depart. Both player-only administrator commands bypass automatic conditions and the global dimension whitelist. Use automatic scheduling to test environmental conditions.
 
 ## Define a supply type
 
@@ -37,8 +37,6 @@ Create `data/<namespace>/airdrop_types/<name>.json`. Its ID is `<namespace>:<nam
   "settings": {
     "min_drop_distance": 48,
     "max_drop_distance": 128,
-    "landed_lifetime_seconds": 600,
-    "reset_on_rejoin": false,
     "allow_liquid_landing": false
   }
 }
@@ -68,7 +66,7 @@ Unknown fields are rejected to catch spelling mistakes. JSON does not accept com
 
 All supplied fields must match. Conditions use the target player's position and dimension; the landing point can be in a different biome. Weather uses the dimension's global state rather than local precipitation or snow. Types must also satisfy global `allowed_dimensions`.
 
-At each interval the scheduler checks the server-wide event limit, selects a living non-spectator player in an allowed dimension, filters types, chooses one by weight, and searches its distance range for a landing point. Failure triggers a retry after one minute. A landed crate continues occupying its event slot until removed.
+At each interval the scheduler waits for the current aircraft to depart, selects a living non-spectator player in an allowed dimension, filters types, chooses one by weight, and searches its distance range for a landing point. An overdue check remains pending during a flight. Player/type/placement failure triggers a retry after one minute. Aircraft departure at tick 1000 permits another event, even if older cargo is still descending or crates remain. Landing, emptying or breaking a crate before that tick does not free the flight slot.
 
 ### Shared dimension groups (1.0.3+)
 
@@ -110,7 +108,7 @@ The aircraft's visible route starts **600 blocks before** the landing point and 
 
 These offsets are relative to the landing point, not the selected player's location. With the default 64–200-block landing radius and a stationary player, the horizontal distance is about 400–800 blocks at appearance and 200–600 blocks at departure. Client visibility still depends on entity tracking and the landing chunk being available. Engine sound follows the visible aircraft and fades to silence beyond 384 blocks; a distant aircraft can therefore be visible before it becomes audible.
 
-Event and aircraft NBT from older builds translate their elapsed flight age during loading, preserving the aircraft's current position, flare progress, and cargo phase. Already-released cargo is not released again. Landed crate deadlines are unchanged. The longer route is built in and is not a datapack or server-config setting.
+Event and aircraft NBT from older builds translate their elapsed flight age during loading, preserving the aircraft's current position, flare progress, and cargo phase. Already-released cargo is not released again. In 1.0.9, landed crate expiration fields no longer delete blocks or supplies. The longer route is built in and is not a datapack or server-config setting.
 
 ## Server configuration and type settings
 
@@ -119,12 +117,20 @@ Configuration is at `<world>/serverconfig/airdrop_supply_drops-server.toml`. Put
 | Global setting | Default | Meaning |
 | --- | --- | --- |
 | `enabled` | `true` | Enable automatic scheduling. |
-| `interval_min_seconds` | `1200` | Minimum interval; positive integer. |
-| `interval_max_seconds` | `1800` | Maximum interval; at least the minimum. |
-| `max_active_events` | `1` | Server-wide event limit; 1–64. |
+| `interval_min_seconds` | `1200` | Minimum interval between automatic delivery starts; positive integer. |
+| `interval_max_seconds` | `1800` | Maximum interval; at least the minimum. Equal values give a fixed interval. |
 | `allowed_dimensions` | `["minecraft:overworld"]` | Dimension IDs or `#dimension` tags eligible for automatic events. |
 | `smoke_color` | `"#FF0000"` | Smoke color for all crates as `#RRGGBB`; selected by the server and sent in each particle packet. |
-| `airborne_smoke_enabled` | `false` | Enable smoke while crates descend. Landed crates always emit smoke until emptied, broken, or expired. |
+| `airborne_smoke_enabled` | `false` | Enable smoke while crates descend. Landed smoke stops when emptied or five minutes after landing. |
+
+For a fixed ten-minute interval:
+
+```toml
+interval_min_seconds = 600
+interval_max_seconds = 600
+```
+
+Changing either interval resets the pending check from the time the new config becomes effective. Unchanged interval settings preserve the pending check across restarts. A short interval still cannot overlap aircraft flights; a due check can proceed after departure. These values measure game ticks at 20 ticks per second, so a paused world pauses scheduling.
 
 For example, green smoke with emission during descent:
 
@@ -143,13 +149,15 @@ The following global defaults can also be overridden in a type's `settings`:
 | --- | --- | --- |
 | `min_drop_distance` | `64` | Horizontal blocks; integer 0–200. |
 | `max_drop_distance` | `200` | Integer 0–200; at least the resolved minimum. |
-| `landed_lifetime_seconds` | `300` | Integer 1–2,147,483,647; lifetime after landing, measured in game ticks. |
-| `reset_on_rejoin` | `true` | Reset remaining crates to their full lifetime from the start of a new singleplayer session. Dedicated-server restarts preserve deadlines. |
 | `allow_liquid_landing` | `true` | Land above water, lava, or modded fluids without replacing them. |
 
 A narrow distance range or low view distance can prevent finding a landing point. Candidate chunks must already be loaded. If fluid landing is disabled and changed terrain causes contact with fluid during descent, the event and cargo are deleted.
 
-Crates have a fixed 27-slot inventory. Players can only take items out. Automated insertion/extraction is disabled; breaking a crate drops its contents. Smoke settings are global and cannot be overridden by this type schema. Aircraft models, flight paths, per-player scheduling, and Java/KubeJS lifecycle events are not configurable through this schema.
+Crates have a fixed 27-slot inventory. Players can only take items out. Automated insertion/extraction is disabled. Crates and remaining contents persist indefinitely; mining drops four oak planks plus remaining supplies, with the same plank count for hand mining, normal tools, Silk Touch and Fortune. Pick-block returns no crate item. Smoke stops after 6000 game ticks from landing, or earlier when emptied. Its absolute deadline is saved and is not reset by chunk loading or a new singleplayer session. Color and airborne emission remain server settings; the five-minute landed duration is fixed.
+
+The former server keys `max_active_events`, `landed_lifetime_seconds` and `reset_on_rejoin` no longer control behavior and can be removed from old TOML files. Valid legacy type fields `landed_lifetime_seconds` and `reset_on_rejoin` are still accepted, but ignored, so existing packs continue loading. Old NBT timer fields are ignored for block/inventory lifetime; when possible, the former expiration and captured lifetime recover the original landing time for the new five-minute smoke limit. Completed landing/flight records retire without loading or removing their crate chunks; completed crates no longer appear in `status` or support cancellation by event UUID.
+
+Aircraft models, flight paths, per-player scheduling, and Java/KubeJS lifecycle events are not configurable through this schema.
 
 ## Loot and exact probabilities
 
@@ -201,13 +209,13 @@ TACZ's block blacklist takes precedence over the whitelist. A later datapack usi
 
 Client resources use `assets/airdrop_supply_drops/`. Follow `src/main/resources/assets/airdrop_supply_drops/` to replace textures, sounds, block models, and translations. Java-defined entity geometry has no arbitrary model-loading interface. The server's `validate` command does not check resource packs.
 
-Cargo, display name, appearance, and resolved settings are saved when an event starts. Reloading affects future deliveries; existing ones keep their loot and deadlines. Removing a type does not reroll an existing crate. Chunk unloading does not extend its deadline. Timeout deletes remaining contents; player breaking drops them.
+Cargo, display name, appearance, and resolved settings are saved when an event starts. Reloading affects future deliveries; existing ones keep their loot. Removing a type does not reroll an existing crate. Landed supplies persist until collected or the block is removed. Smoke deadlines survive unloading and restart; player mining drops remaining supplies and four oak planks.
 
 ## Check a custom pack
 
 1. Install the example, reload, and validate. Mineral, food, medical, and survival types should be listed without errors.
-2. Generate a medical crate; check its orange label, supplies, and ten-minute lifetime.
-3. Change its lifetime to 20 seconds and reload. Existing crates retain their deadlines; new crates use 20 seconds.
-4. Test `reset_on_rejoin=false` by reopening singleplayer; the remaining game-time deadline should persist.
+2. Generate a medical crate; check its orange label and supplies. Leave it for more than five minutes: smoke should stop while the crate and supplies remain.
+3. Empty a crate; check that it remains without smoke. Mine a crate normally and with Silk Touch/Fortune: each should yield four oak planks plus remaining supplies, with no crate item.
+4. Reopen singleplayer and unload/reload a crate chunk; verify inventory persistence and that smoke does not get a new five-minute window.
 5. Shorten automatic intervals in a test world and change weather/time to check conditions. Administrator commands bypass these conditions.
 6. Introduce a misspelled item ID or setting in a test copy, verify diagnostics, then fix it and reload.

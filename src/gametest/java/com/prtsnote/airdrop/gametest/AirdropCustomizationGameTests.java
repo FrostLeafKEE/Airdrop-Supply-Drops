@@ -35,7 +35,7 @@ public final class AirdropCustomizationGameTests {
                 "Dedicated example test pack and unused probe paths are required");
         helper.assertTrue(!java.nio.file.Files.exists(lootFile), "Loot probe path must be unused");
         var selected = java.util.List.copyOf(server.getPackRepository().getSelectedIds());
-        var json = definition(); json.add("settings", JsonParser.parseString("{\"landed_lifetime_seconds\":2}"));
+        var json = definition(); json.add("settings", JsonParser.parseString("{\"min_drop_distance\":48,\"max_drop_distance\":128,\"landed_lifetime_seconds\":2}"));
         json.addProperty("loot_table", "example_airdrops:airdrop/_reload_reference_test");
         // Unknown metadata must not override the 1.21.1 loot_table entry's actual value field.
         java.nio.file.Files.writeString(lootFile, """
@@ -47,11 +47,11 @@ public final class AirdropCustomizationGameTests {
         var frozen = new java.util.concurrent.atomic.AtomicReference<CompoundTag>();
         server.reloadResources(selected).thenRunAsync(() -> {
             var type = AirdropTypes.all().get(ResourceLocation.parse("example_airdrops:_reload_test"));
-            helper.assertTrue(type != null && type.settings().resolve().lifetimeSeconds() == 2, "Reload must read the new type file");
+            helper.assertTrue(type != null && type.settings().resolve().minDistance() == 48, "Reload must read the new type file");
             var drop = ModEntities.FALLING_AIRDROP.get().create(helper.getLevel());
             helper.assertTrue(drop.prepare(type), "Reloaded type must generate cargo");
             frozen.set(drop.saveWithoutId(new CompoundTag()));
-            json.add("settings", JsonParser.parseString("{\"landed_lifetime_seconds\":900}"));
+            json.add("settings", JsonParser.parseString("{\"min_drop_distance\":80,\"max_drop_distance\":128,\"landed_lifetime_seconds\":900}"));
             var bad = definition(); bad.addProperty("loot_table", "missing:reload_probe");
             try {
                 java.nio.file.Files.writeString(file, json.toString());
@@ -59,12 +59,12 @@ public final class AirdropCustomizationGameTests {
             } catch (java.io.IOException error) { throw new java.io.UncheckedIOException(error); }
         }, server).thenCompose(unused -> server.reloadResources(selected)).thenRunAsync(() -> {
             var type = AirdropTypes.all().get(ResourceLocation.parse("example_airdrops:_reload_test"));
-            helper.assertTrue(type.settings().resolve().lifetimeSeconds() == 900, "Changed settings must apply to new drops");
+            helper.assertTrue(type.settings().resolve().minDistance() == 80, "Changed settings must apply to new drops");
             helper.assertTrue(!AirdropTypes.all().containsKey(ResourceLocation.parse("example_airdrops:_invalid_test")), "Post-reload validation must exclude invalid references");
             helper.assertTrue(AirdropTypes.diagnostics().stream().anyMatch(error -> error.contains("_invalid_test.json") && error.contains("missing:reload_probe")),
                     "Post-reload diagnostic must identify the source file and missing table");
             var restored = ModEntities.FALLING_AIRDROP.get().create(helper.getLevel()); restored.load(frozen.get());
-            helper.assertTrue(restored.saveWithoutId(new CompoundTag()).getCompound("airdrop_settings").getInt("lifetime_seconds") == 2,
+            helper.assertTrue(restored.saveWithoutId(new CompoundTag()).getCompound("airdrop_settings").getInt("min_distance") == 48,
                     "Existing cargo must retain its settings after a real reload");
         }, server).handleAsync((unused, error) -> {
             try {
@@ -147,30 +147,33 @@ public final class AirdropCustomizationGameTests {
     }
 
     @GameTest(template = "airdrop_supply_drops:empty", timeoutTicks = 60)
-    public static void customLifetimeAndCargoSnapshot(GameTestHelper helper) {
-        var json = definition(); json.add("settings", JsonParser.parseString("{\"landed_lifetime_seconds\":2,\"reset_on_rejoin\":false}"));
+    public static void customSettingsAndIgnoredLegacyLifetime(GameTestHelper helper) {
+        var json = definition(); json.add("settings", JsonParser.parseString("{\"min_drop_distance\":48,\"max_drop_distance\":128,\"landed_lifetime_seconds\":2,\"reset_on_rejoin\":false}"));
         var type = parse(json);
         var pos = helper.absolutePos(new BlockPos(2, 2, 2));
         helper.getLevel().setBlockAndUpdate(pos.below(), Blocks.STONE.defaultBlockState());
         helper.assertTrue(AirdropServer.placeCrate(helper.getLevel(), pos, type), "Customized crate must place");
         var crate = (AirdropCrateBlockEntity) helper.getLevel().getBlockEntity(pos);
-        helper.assertTrue(crate.getRemainingTicks() == 40, "Crate must inherit type lifetime");
         var saved = crate.saveWithFullMetadata(helper.getLevel().registryAccess());
+        helper.assertTrue(saved.getLong("smoke_ends_at") == helper.getLevel().getServer().overworld().getGameTime() + 6000,
+                "Legacy type lifetime must not change the five-minute smoke duration");
         var drop = ModEntities.FALLING_AIRDROP.get().create(helper.getLevel()); drop.setPos(Vec3.atCenterOf(pos.above(8)));
         helper.assertTrue(drop.prepare(type), "Cargo must prepare");
         var cargo = drop.saveWithoutId(new CompoundTag());
-        json.add("settings", JsonParser.parseString("{\"landed_lifetime_seconds\":999}"));
-        helper.assertTrue(parse(json).settings().resolve().lifetimeSeconds() == 999, "Changed definition must affect future events");
+        json.add("settings", JsonParser.parseString("{\"min_drop_distance\":80,\"max_drop_distance\":128,\"landed_lifetime_seconds\":999}"));
+        helper.assertTrue(parse(json).settings().resolve().minDistance() == 80, "Changed definition must affect future events");
         var restored = ModEntities.FALLING_AIRDROP.get().create(helper.getLevel()); restored.load(cargo);
-        helper.assertTrue(restored.saveWithoutId(new CompoundTag()).getCompound("airdrop_settings").getInt("lifetime_seconds") == 2,
+        helper.assertTrue(restored.saveWithoutId(new CompoundTag()).getCompound("airdrop_settings").getInt("min_distance") == 48,
                 "Saved cargo must not consult changed definitions");
         helper.runAfterDelay(5, () -> {
             crate.loadWithComponents(saved, helper.getLevel().registryAccess()); crate.onLoad();
-            helper.assertTrue(crate.getRemainingTicks() <= 35, "NBT reload must preserve custom deadline");
-            helper.assertTrue(!crate.saveWithFullMetadata(helper.getLevel().registryAccess()).getCompound("airdrop_settings").getBoolean("reset_on_rejoin"), "Reset opt-out must persist");
+            var again = crate.saveWithFullMetadata(helper.getLevel().registryAccess());
+            helper.assertTrue(again.getLong("smoke_ends_at") == saved.getLong("smoke_ends_at"), "NBT reload must preserve the smoke deadline");
+            helper.assertTrue(!again.getCompound("airdrop_settings").contains("lifetime_seconds"), "Obsolete crate lifetime must not persist as a setting");
         });
         helper.runAfterDelay(42, () -> {
-            helper.assertTrue(helper.getLevel().getBlockEntity(pos) == null, "Custom two-second crate must expire");
+            helper.assertTrue(helper.getLevel().getBlockEntity(pos) == crate && !crate.isEmpty() && crate.emitsSmoke(),
+                    "A legacy two-second setting must neither delete supplies nor end smoke early");
             helper.succeed();
         });
     }

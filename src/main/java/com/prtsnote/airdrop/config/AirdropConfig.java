@@ -13,11 +13,11 @@ public final class AirdropConfig {
             .define("enabled", true);
 
     public static final ForgeConfigSpec.IntValue INTERVAL_MIN_SECONDS = BUILDER
-            .comment("Minimum automatic event interval in seconds.")
+            .comment("Minimum interval between automatic delivery starts in seconds. Only one aircraft may be in flight; landed crates do not count. Changing either interval resets the next check.")
             .defineInRange("interval_min_seconds", 1200, 1, Integer.MAX_VALUE);
 
     public static final ForgeConfigSpec.IntValue INTERVAL_MAX_SECONDS = BUILDER
-            .comment("Maximum automatic event interval in seconds.")
+            .comment("Maximum automatic event interval in seconds. Set equal to interval_min_seconds for a fixed interval.")
             .defineInRange("interval_max_seconds", 1800, 1, Integer.MAX_VALUE);
 
     public static final ForgeConfigSpec.IntValue MIN_DROP_DISTANCE = BUILDER
@@ -28,14 +28,6 @@ public final class AirdropConfig {
             .comment("Maximum horizontal distance from the selected player to the drop point.")
             .defineInRange("max_drop_distance", 200, 0, 200);
 
-    public static final ForgeConfigSpec.IntValue LANDED_LIFETIME_SECONDS = BUILDER
-            .comment("How long a landed, non-empty airdrop remains in seconds.")
-            .defineInRange("landed_lifetime_seconds", 300, 1, Integer.MAX_VALUE);
-
-    public static final ForgeConfigSpec.BooleanValue RESET_ON_REJOIN = BUILDER
-            .comment("Reset landed crate timers when starting a new singleplayer session.")
-            .define("reset_on_rejoin", true);
-
     public static final ForgeConfigSpec.BooleanValue ALLOW_LIQUID_LANDING = BUILDER
             .comment("Allow crates to land above liquid surfaces without replacing the liquid.")
             .define("allow_liquid_landing", true);
@@ -45,12 +37,8 @@ public final class AirdropConfig {
             .define("smoke_color", "#FF0000", value -> value instanceof String color && color.matches("#[0-9a-fA-F]{6}"));
 
     public static final ForgeConfigSpec.BooleanValue AIRBORNE_SMOKE_ENABLED = BUILDER
-            .comment("Emit smoke while a supply crate is descending. Landed crates always emit smoke until removed.")
+            .comment("Emit smoke while a supply crate is descending. Landed crates emit smoke while they contain supplies.")
             .define("airborne_smoke_enabled", false);
-
-    public static final ForgeConfigSpec.IntValue MAX_ACTIVE_EVENTS = BUILDER
-            .comment("Maximum number of active events across the server.")
-            .defineInRange("max_active_events", 1, 1, 64);
 
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> ALLOWED_DIMENSIONS = BUILDER
             .comment("Dimension IDs or #dimension tags where automatic airdrops may be scheduled. Tags group dimension IDs, not dimension types.")

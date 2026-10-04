@@ -52,6 +52,7 @@ public final class AirdropEvents extends SavedData {
     private final Set<UUID> tickets = new HashSet<>();
     private long nextEventAt;
     private long recoveryReadyAt;
+    private int scheduledMinSeconds = -1, scheduledMaxSeconds = -1;
 
     public static AirdropEvents get(MinecraftServer server) {
         return server.overworld().getDataStorage()
@@ -61,6 +62,10 @@ public final class AirdropEvents extends SavedData {
     public Event find(UUID id) { return events.get(id); }
     public long nextEventAt() { return nextEventAt; }
     public static long now(MinecraftServer server) { return server.overworld().getGameTime(); }
+    public boolean hasFlightInProgress(MinecraftServer server) {
+        long time = now(server);
+        return events.values().stream().anyMatch(event -> time - event.started < DEPARTURE_TICK);
+    }
     private static ServerLevel level(MinecraftServer server, Event event) {
         return server.getLevel(ResourceKey.create(Registries.DIMENSION, event.dimension));
     }
@@ -68,10 +73,7 @@ public final class AirdropEvents extends SavedData {
     public void startSession(MinecraftServer server) {
         recoveryReadyAt = now(server) + 100;
         for (Event event : all()) {
-            if (event.stage == Stage.LANDED && server.isSingleplayer() && event.settings.resetOnRejoin()) {
-                event.deadline = now(server) + event.settings.lifetimeSeconds() * 20L;
-            }
-            if (event.stage != Stage.LANDED) hold(server, event);
+            if (event.stage != Stage.LANDED || now(server) - event.started < DEPARTURE_TICK) hold(server, event);
         }
         setDirty();
     }
@@ -94,7 +96,7 @@ public final class AirdropEvents extends SavedData {
     }
 
     public UUID begin(ServerLevel level, BlockPos ground, AirdropTypes.Type type) {
-        if (events.size() >= AirdropConfig.MAX_ACTIVE_EVENTS.get()) return null;
+        if (hasFlightInProgress(level.getServer())) return null;
         FallingAirdrop drop = ModEntities.FALLING_AIRDROP.get().create(level);
         if (drop == null) return null;
         drop.setPos(ground.getX() + 0.5, ground.getY() + 60, ground.getZ() + 0.5);
@@ -133,10 +135,10 @@ public final class AirdropEvents extends SavedData {
     public void landed(MinecraftServer server, UUID id, BlockPos pos) {
         Event event = find(id);
         if (event == null) return;
-        releaseTicket(server, event);
         event.stage = Stage.LANDED;
         event.ground = pos.immutable();
-        event.deadline = now(server) + event.settings.lifetimeSeconds() * 20L;
+        // The block owns its inventory permanently. Retain this event only until its aircraft leaves.
+        if (now(server) - event.started >= DEPARTURE_TICK) releaseTicket(server, event);
         setDirty();
     }
 
@@ -170,13 +172,18 @@ public final class AirdropEvents extends SavedData {
         long time = now(server);
         for (Event event : all()) {
             ServerLevel level = level(server, event);
-            if (level == null || time >= event.deadline) {
+            long age = time - event.started;
+            if (event.stage == Stage.LANDED && age >= DEPARTURE_TICK) {
+                forget(server, event.id);
+                continue;
+            }
+            if (level == null || (event.stage != Stage.LANDED && time >= event.deadline)) {
                 cancel(server, event.id);
                 continue;
             }
-            if (event.stage == Stage.LANDED) continue;
             hold(server, event);
-            long age = time - event.started;
+            if (age < DEPARTURE_TICK && time >= recoveryReadyAt && time % 20 == 0) spawnPlane(level, event);
+            if (event.stage == Stage.LANDED) continue;
             if (event.stage == Stage.FLYING) {
                 while (event.flares < 3 && age >= FLARE_FIRST_TICK + event.flares * FLARE_INTERVAL) {
                     event.flares++;
@@ -188,7 +195,7 @@ public final class AirdropEvents extends SavedData {
                     event.stage = Stage.FALLING;
                     setDirty();
                     restoreDrop(level, event);
-                } else if (time >= recoveryReadyAt && time % 20 == 0) spawnPlane(level, event);
+                }
             } else if (time % 20 == 0) {
                 var drop = level.getEntity(event.dropId());
                 if (drop instanceof FallingAirdrop) {
@@ -229,12 +236,20 @@ public final class AirdropEvents extends SavedData {
 
     public void schedule(MinecraftServer server, long time) {
         if (!AirdropConfig.ENABLED.get()) return;
-        if (nextEventAt == 0) { nextEventAt = time + interval(server); setDirty(); return; }
+        int min = AirdropConfig.INTERVAL_MIN_SECONDS.get(), max = AirdropConfig.INTERVAL_MAX_SECONDS.get();
+        if (nextEventAt == 0 || scheduledMinSeconds != min || scheduledMaxSeconds != max) {
+            scheduledMinSeconds = min;
+            scheduledMaxSeconds = max;
+            nextEventAt = time + interval(server);
+            setDirty();
+            return;
+        }
         if (time < nextEventAt) return;
-        // Capacity and no-player failures retry after a minute instead of searching every tick.
+        // Keep an overdue check pending until the aircraft departs, even if its crate landed or broke.
+        if (hasFlightInProgress(server)) return;
+        // No-player and placement failures retry after a minute instead of searching every tick.
         nextEventAt = time + 1200;
         setDirty();
-        if (events.size() >= AirdropConfig.MAX_ACTIVE_EVENTS.get()) return;
         var players = server.getPlayerList().getPlayers().stream().filter(player -> player.isAlive() && !player.isSpectator()
                 && AirdropConfig.isDimensionAllowed(player.serverLevel())).toList();
         if (players.isEmpty()) return;
@@ -259,6 +274,8 @@ public final class AirdropEvents extends SavedData {
     public static AirdropEvents load(CompoundTag tag, HolderLookup.Provider registries) {
         AirdropEvents data = new AirdropEvents();
         data.nextEventAt = tag.getLong("next_event_at");
+        data.scheduledMinSeconds = tag.contains("interval_min_seconds") ? tag.getInt("interval_min_seconds") : AirdropConfig.INTERVAL_MIN_SECONDS.get();
+        data.scheduledMaxSeconds = tag.contains("interval_max_seconds") ? tag.getInt("interval_max_seconds") : AirdropConfig.INTERVAL_MAX_SECONDS.get();
         for (var value : tag.getList("events", 10)) {
             CompoundTag item = (CompoundTag) value;
             try {
@@ -269,7 +286,7 @@ public final class AirdropEvents extends SavedData {
                 event.started = item.getLong("started"); event.deadline = item.getLong("deadline");
                 event.stage = Stage.valueOf(item.getString("stage"));
                 // Translate old elapsed ages without moving an aircraft or replaying its cargo.
-                if (!tag.contains("flight_path_version") && event.stage != Stage.LANDED) {
+                if (!tag.contains("flight_path_version")) {
                     event.started -= LEGACY_FLIGHT_AGE_OFFSET;
                 }
                 event.flares = item.getInt("flares"); event.heading = item.getFloat("heading");
@@ -284,6 +301,8 @@ public final class AirdropEvents extends SavedData {
     @Override public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
         tag.putInt("flight_path_version", FLIGHT_PATH_VERSION);
         tag.putLong("next_event_at", nextEventAt);
+        tag.putInt("interval_min_seconds", scheduledMinSeconds);
+        tag.putInt("interval_max_seconds", scheduledMaxSeconds);
         ListTag list = new ListTag();
         for (Event event : all()) {
             CompoundTag item = new CompoundTag();

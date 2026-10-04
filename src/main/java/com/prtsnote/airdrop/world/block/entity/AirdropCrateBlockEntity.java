@@ -2,8 +2,6 @@ package com.prtsnote.airdrop.world.block.entity;
 
 import com.prtsnote.airdrop.registry.ModBlockEntities;
 import com.prtsnote.airdrop.data.AirdropRules;
-import com.prtsnote.airdrop.server.AirdropServer;
-import com.prtsnote.airdrop.server.AirdropEvents;
 import com.prtsnote.airdrop.world.menu.AirdropCrateMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
@@ -29,14 +27,10 @@ import java.util.UUID;
 public final class AirdropCrateBlockEntity extends BlockEntity implements net.minecraft.world.WorldlyContainer, MenuProvider {
     private static final int[] NO_AUTOMATION_SLOTS = new int[0];
     public static final int INVENTORY_SIZE = 27;
-    public static final int LIFETIME_TICKS = 6000;
-
+    public static final int SMOKE_DURATION_TICKS = 5 * 60 * 20;
     private final NonNullList<ItemStack> items = NonNullList.withSize(INVENTORY_SIZE, ItemStack.EMPTY);
-    private int remainingTicks = LIFETIME_TICKS;
-    private boolean timerStarted;
-    private long expiresAt = -1;
+    private long smokeEndsAt = -1;
     private AirdropRules.Settings settings;
-    private UUID sessionId;
     private UUID eventId;
     public UUID eventId() { return eventId; }
     public void bindEvent(UUID id) { eventId = id; setChanged(); }
@@ -47,21 +41,16 @@ public final class AirdropCrateBlockEntity extends BlockEntity implements net.mi
     }
 
     public static void serverTick(Level level, BlockPos pos, BlockState state, AirdropCrateBlockEntity crate) {
-        if (!crate.timerStarted) {
-            crate.initialize(crate.displayName);
+        if (crate.smokeEndsAt < 0) {
+            crate.smokeEndsAt = level.getServer().overworld().getGameTime() + SMOKE_DURATION_TICKS;
+            crate.setChanged();
         }
-
-        if (crate.isEmpty() || crate.isExpired()) {
-            if (crate.eventId != null) AirdropEvents.get(level.getServer()).forget(level.getServer(), crate.eventId);
-            level.removeBlock(pos, false);
-            return;
-        }
+        // Crate persistence and smoke lifetime are independent.
+        if (!crate.emitsSmoke()) return;
         if (level instanceof net.minecraft.server.level.ServerLevel serverLevel && level.getGameTime() % 4 == 0) {
             com.prtsnote.airdrop.server.AirdropSmoke.emit(serverLevel, pos.getX() + 0.5, pos.getY() + 1.1, pos.getZ() + 0.5, false);
         }
     }
-
-    private long now() { return level.getServer().overworld().getGameTime(); }
 
     public void initialize(Component name) {
         initialize(name, settings == null ? AirdropRules.defaults() : settings);
@@ -70,53 +59,17 @@ public final class AirdropCrateBlockEntity extends BlockEntity implements net.mi
     public void initialize(Component name, AirdropRules.Settings settings) {
         this.settings = settings;
         displayName = name.copy();
-        timerStarted = true;
-        expiresAt = now() + settings.lifetimeSeconds() * 20L;
-        sessionId = AirdropServer.session(level.getServer()).id();
+        smokeEndsAt = level.getServer().overworld().getGameTime() + SMOKE_DURATION_TICKS;
         setChanged();
     }
 
-    @Override
-    public void onLoad() {
-        super.onLoad();
-        if (level == null || level.isClientSide || !timerStarted) return;
-        if (settings == null) settings = AirdropRules.defaults();
-        var session = AirdropServer.session(level.getServer());
-        if (level.getServer().isSingleplayer() && settings.resetOnRejoin() && !session.id().equals(sessionId)) {
-            expiresAt = session.startedAt() + settings.lifetimeSeconds() * 20L;
-        } else if (expiresAt < 0) {
-            expiresAt = now() + remainingTicks;
-        }
-        sessionId = session.id();
-        setChanged();
-    }
-
-    public boolean isExpired() {
-        if (eventId != null && level != null && !level.isClientSide) {
-            var event = AirdropEvents.get(level.getServer()).find(eventId);
-            return event == null || event.stage != AirdropEvents.Stage.LANDED || now() >= event.deadline;
-        }
-        return timerStarted && level != null && !level.isClientSide && expiresAt >= 0 && now() >= expiresAt;
-    }
-
-    public int getRemainingTicks() {
-        if (eventId != null && level != null && !level.isClientSide) {
-            var event = AirdropEvents.get(level.getServer()).find(eventId);
-            return event == null ? 0 : (int) Math.min(Integer.MAX_VALUE, Math.max(0L, event.deadline - now()));
-        }
-        return level == null || level.isClientSide || expiresAt < 0 ? remainingTicks
-                : (int) Math.min(Integer.MAX_VALUE, Math.max(0L, expiresAt - now()));
-    }
-
-    public void setRemainingTicks(int remainingTicks) {
-        this.remainingTicks = Math.max(0, remainingTicks);
-        this.expiresAt = level == null || level.isClientSide ? -1 : now() + this.remainingTicks;
-        this.timerStarted = true;
-        setChanged();
+    public boolean emitsSmoke() {
+        return !isEmpty() && level != null && !level.isClientSide && smokeEndsAt >= 0
+                && level.getServer().overworld().getGameTime() < smokeEndsAt;
     }
 
     public void dropContents(Level level, BlockPos pos) {
-        if (level.isClientSide || isExpired()) {
+        if (level.isClientSide) {
             return;
         }
 
@@ -134,11 +87,8 @@ public final class AirdropCrateBlockEntity extends BlockEntity implements net.mi
     protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.saveAdditional(tag, registries);
         ContainerHelper.saveAllItems(tag, items, registries);
-        tag.putInt("remaining_ticks", getRemainingTicks());
-        tag.putBoolean("timer_started", timerStarted);
-        tag.putLong("expires_at", expiresAt);
+        tag.putLong("smoke_ends_at", smokeEndsAt);
         if (settings != null) tag.put("airdrop_settings", settings.save());
-        if (sessionId != null) tag.putUUID("session_id", sessionId);
         if (eventId != null) tag.putUUID("event_id", eventId);
         tag.put("display_name", ComponentSerialization.CODEC
                 .encodeStart(registries.createSerializationContext(NbtOps.INSTANCE), displayName)
@@ -150,11 +100,15 @@ public final class AirdropCrateBlockEntity extends BlockEntity implements net.mi
         super.loadAdditional(tag, registries);
         items.clear();
         ContainerHelper.loadAllItems(tag, items, registries);
-        remainingTicks = tag.contains("remaining_ticks") ? tag.getInt("remaining_ticks") : LIFETIME_TICKS;
-        timerStarted = tag.getBoolean("timer_started");
-        expiresAt = tag.contains("expires_at") ? tag.getLong("expires_at") : -1;
+        smokeEndsAt = tag.contains("smoke_ends_at") ? tag.getLong("smoke_ends_at") : -1;
+        // Recover the landing time from an old deadline, only to limit smoke; never delete the crate.
+        if (smokeEndsAt < 0 && tag.contains("expires_at") && tag.getLong("expires_at") >= 0) {
+            var oldSettings = tag.getCompound("airdrop_settings");
+            long seconds = oldSettings.contains("lifetime_seconds") ? Math.max(1, oldSettings.getInt("lifetime_seconds")) : 300;
+            smokeEndsAt = Math.max(0, tag.getLong("expires_at") + SMOKE_DURATION_TICKS - seconds * 20L);
+        }
+        // Legacy crate expiration/session fields no longer control block or inventory lifetime.
         settings = tag.contains("airdrop_settings") ? AirdropRules.Settings.load(tag.getCompound("airdrop_settings")) : null;
-        sessionId = tag.hasUUID("session_id") ? tag.getUUID("session_id") : null;
         eventId = tag.hasUUID("event_id") ? tag.getUUID("event_id") : null;
         if (tag.contains("display_name")) {
             Component name = ComponentSerialization.CODEC
@@ -221,7 +175,7 @@ public final class AirdropCrateBlockEntity extends BlockEntity implements net.mi
 
     @Override
     public boolean stillValid(Player player) {
-        if (isRemoved() || isExpired() || level == null || level.getBlockEntity(worldPosition) != this) {
+        if (isRemoved() || level == null || level.getBlockEntity(worldPosition) != this) {
             return false;
         }
         return player.distanceToSqr(
