@@ -104,6 +104,14 @@ allowed_dimensions = ["#tacz_airdrop:allowed_dimensions"]
 
 The global default remains `["minecraft:overworld"]`. IDs and tags can be mixed in either list. An empty type list adds no restriction; an empty global whitelist allows no automatic events. Missing or empty referenced tags are reported by validation; invalid type definitions are excluded. Tag membership updates after `/reload`; new dimension definitions still require loading the world again. Administrator `spawn` and `crate` commands continue to bypass both filters.
 
+## Aircraft route (1.0.6+)
+
+The aircraft's visible route starts **600 blocks before** the landing point and ends **400 blocks after** it, at a height of 60 blocks above that point. Heading remains random. Flight speed stays at one block per tick (20 blocks per second at 20 TPS): flares release at 24, 26, and 28 seconds; cargo releases at 30 seconds; the aircraft departs at 50 seconds.
+
+These offsets are relative to the landing point, not the selected player's location. With the default 64–200-block landing radius and a stationary player, the horizontal distance is about 400–800 blocks at appearance and 200–600 blocks at departure. Client visibility still depends on entity tracking and the landing chunk being available. Engine sound follows the visible aircraft and fades to silence beyond 384 blocks; a distant aircraft can therefore be visible before it becomes audible.
+
+Event and aircraft NBT from older builds translate their elapsed flight age during loading, preserving the aircraft's current position, flare progress, and cargo phase. Already-released cargo is not released again. Landed crate deadlines are unchanged. The longer route is built in and is not a datapack or server-config setting.
+
 ## Server configuration and type settings
 
 Configuration is at `<world>/serverconfig/airdrop_supply_drops-server.toml`. Put a copy in `defaultconfigs/airdrop_supply_drops-server.toml` to supply defaults for new worlds.

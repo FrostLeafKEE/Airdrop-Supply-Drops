@@ -71,7 +71,7 @@ public final class AirdropPlane extends Entity {
     public static void emitFlares(ServerLevel level, AirdropEvents.Event event, long age) {
         if (age % 2 != 0) return;
         for (int round = 0; round < event.flares; round++) {
-            int emittedAt = 120 + round * 40;
+            int emittedAt = AirdropEvents.FLARE_FIRST_TICK + round * AirdropEvents.FLARE_INTERVAL;
             double elapsed = age - emittedAt;
             if (elapsed < 0 || elapsed > 38) continue;
             Vec3 origin = visualPosition(event, emittedAt);
@@ -97,11 +97,14 @@ public final class AirdropPlane extends Entity {
     }
     @Override protected void addAdditionalSaveData(CompoundTag tag) {
         if (eventId != null) tag.putUUID("event_id", eventId);
+        tag.putInt("flight_path_version", AirdropEvents.FLIGHT_PATH_VERSION);
         tag.putInt("flight_age", flightAge()); tag.putFloat("heading", heading());
     }
     @Override protected void readAdditionalSaveData(CompoundTag tag) {
         eventId = tag.hasUUID("event_id") ? tag.getUUID("event_id") : null;
-        entityData.set(AGE, tag.getInt("flight_age")); entityData.set(HEADING, tag.getFloat("heading"));
+        int age = tag.getInt("flight_age");
+        if (!tag.contains("flight_path_version")) age += AirdropEvents.LEGACY_FLIGHT_AGE_OFFSET;
+        entityData.set(AGE, age); entityData.set(HEADING, tag.getFloat("heading"));
     }
     @Override public Packet<ClientGamePacketListener> getAddEntityPacket() { return NetworkHooks.getEntitySpawningPacket(this); }
 }

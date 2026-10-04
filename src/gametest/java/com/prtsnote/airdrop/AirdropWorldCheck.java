@@ -68,13 +68,13 @@ public final class AirdropWorldCheck {
             var event = manager.find(eventId);
             if (event == null) throw new IllegalStateException("Preview event vanished");
             long age = AirdropEvents.now(server) - event.started;
-            if (age == 205) {
-                var camera = AirdropPlane.visualPosition(event, 210).add(14, 6, 14);
+            if (age == AirdropEvents.RELEASE_TICK - 35) {
+                var camera = AirdropPlane.visualPosition(event, AirdropEvents.RELEASE_TICK - 30).add(14, 6, 14);
                 server.getPlayerList().getPlayers().get(0).teleportTo(level, camera.x, camera.y, camera.z, 0, 0);
             }
-            if (age == 235) server.getPlayerList().getPlayers().get(0).teleportTo(level, 8, 244, 8, 0, 0);
-            if (age == 450) server.getPlayerList().getPlayers().get(0).teleportTo(level, 4, 183, 4, 0, 0);
-            if (age >= 800) {
+            if (age == AirdropEvents.RELEASE_TICK - 5) server.getPlayerList().getPlayers().get(0).teleportTo(level, 8, 244, 8, 0, 0);
+            if (age == AirdropEvents.RELEASE_TICK + 210) server.getPlayerList().getPlayers().get(0).teleportTo(level, 4, 183, 4, 0, 0);
+            if (age >= AirdropEvents.RELEASE_TICK + 560) {
                 if (event.stage != AirdropEvents.Stage.LANDED || level.getBlockEntity(GROUND) == null) {
                     throw new IllegalStateException("Crate did not land");
                 }
@@ -112,7 +112,7 @@ public final class AirdropWorldCheck {
             if (drop != null) target = drop.position().add(0, 1.5, 0);
             else if (plane != null) target = plane.visualPosition();
             client.player.lookAt(EntityAnchorArgument.Anchor.EYES, target);
-            if (pictures == 0 && plane != null && plane.flightAge() >= 210 && plane.flightAge() < 240) {
+            if (pictures == 0 && plane != null && plane.flightAge() >= AirdropEvents.RELEASE_TICK - 30 && plane.flightAge() < AirdropEvents.RELEASE_TICK) {
                 snapshot(client, "airdrop-flight"); pictures++;
             } else if (pictures == 1 && drop != null && drop.deploymentTicks() >= 30) {
                 snapshot(client, "airdrop-descent"); pictures++;
