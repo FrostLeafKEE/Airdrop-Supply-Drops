@@ -14,6 +14,9 @@ public final class AircraftAppearance {
 
     public static final float ENGINE_X = 4.2F, ENGINE_Y = 0.12F, PROPELLER_Z = 3.48F;
     public static final int FULL_BRIGHT = 0xF000F0;
+    private static final float[][] FUSELAGE = {{-7.0F, 0.55F, 0.65F, 0.10F}, {-5.5F, 1.2F, 1.2F, 0.02F},
+            {-3.5F, 2.0F, 1.8F, 0}, {2.6F, 2.4F, 2.1F, 0}, {4.2F, 2.05F, 1.8F, 0},
+            {5.5F, 1.4F, 1.1F, -0.15F}, {6.1F, 0.6F, 0.6F, -0.12F}};
     public static final List<Part> BODY = body();
     public static final List<Part> PROPELLER = propeller();
     public static final List<Lamp> LAMPS = List.of(
@@ -42,17 +45,16 @@ public final class AircraftAppearance {
     private static List<Part> body() {
         var parts = new ArrayList<Part>();
         // Octagonal cross-sections taper the nose and cargo tail instead of one rectangular slab.
-        float[][] sections = {{-7.0F, 0.55F, 0.65F, 0.10F}, {-5.5F, 1.2F, 1.2F, 0.02F},
-                {-3.5F, 2.0F, 1.8F, 0}, {2.6F, 2.4F, 2.1F, 0}, {4.2F, 2.05F, 1.8F, 0},
-                {5.5F, 1.4F, 1.1F, -0.15F}, {6.1F, 0.6F, 0.6F, -0.12F}};
-        parts.add(tube(Material.BODY, 0, sections));
+        parts.add(tube(Material.BODY, 0, FUSELAGE));
         parts.add(box(Material.FRAME, -0.31F, -0.44F, 6.08F, 0.62F, 0.61F, 0.16F));
-        // Two sloped windshield panes, with an exposed centre pillar.
+        // A wraparound cockpit follows the actual top and side chamfers of the nose.
+        cockpitWindow(parts, 4, 4, 0.03F, 0.475F, 0.045F, 0.79F);
+        cockpitWindow(parts, 4, 4, 0.525F, 0.97F, 0.045F, 0.79F);
+        cockpitWindow(parts, 4, 3, 0.04F, 0.96F, 0.045F, 0.79F);
+        cockpitWindow(parts, 4, 5, 0.04F, 0.96F, 0.045F, 0.79F);
+        cockpitWindow(parts, 3, 3, 0.04F, 0.96F, 0.15F, 0.96F);
+        cockpitWindow(parts, 3, 5, 0.04F, 0.96F, 0.15F, 0.96F);
         for (int side : new int[]{-1, 1}) {
-            parts.add(panel(Material.GLASS, side, p(side * 0.04F, 0.886F, 4.25F), p(side * 0.58F, 0.886F, 4.25F),
-                    p(side * 0.46F, 0.556F, 5.15F), p(side * 0.04F, 0.556F, 5.15F)));
-            parts.add(panel(Material.GLASS, side, p(side * 1.16F, 0.46F, 3.0F), p(side * 1.04F, 0.44F, 4.15F),
-                    p(side * 0.77F, 0.85F, 4.15F), p(side * 0.89F, 0.97F, 3.0F)));
             for (int window = 0; window < 4; window++) {
                 float z = 1.65F - window * 1.13F;
                 float halfWidth = 1 + 0.2F * (z + 3.5F) / 6.1F;
@@ -150,8 +152,36 @@ public final class AircraftAppearance {
         return new Part(material, List.copyOf(faces));
     }
 
-    private static Part panel(Material material, int side, Point a, Point b, Point c, Point d) {
-        return new Part(material, List.of(side > 0 ? quad(a,d,c,b) : quad(a,b,c,d)));
+    private static void cockpitWindow(List<Part> parts, int section, int edge, float u0, float u1, float t0, float t1) {
+        // The same section rings define both the hull and glazing; a small normal offset avoids z-fighting.
+        cockpitPatch(parts, Material.FRAME, section, edge, u0, u1, t0, t1, 0.012F);
+        cockpitPatch(parts, Material.GLASS, section, edge, u0 + 0.035F, u1 - 0.035F, t0 + 0.025F, t1 - 0.025F, 0.020F);
+    }
+
+    private static void cockpitPatch(List<Part> parts, Material material, int section, int edge,
+                                     float u0, float u1, float t0, float t1, float offset) {
+        Point a = hullPoint(section, edge, u0, t0, offset), b = hullPoint(section, edge, u1, t0, offset),
+                c = hullPoint(section, edge, u1, t1, offset), d = hullPoint(section, edge, u0, t1, offset);
+        // Tapered sections can twist a quad slightly. Separate planar triangles retain correct normals.
+        parts.add(new Part(material, List.of(quad(a,b,c,c))));
+        parts.add(new Part(material, List.of(quad(a,c,d,d))));
+    }
+
+    private static Point hullPoint(int section, int edge, float u, float t, float offset) {
+        Point[] back = ring(0, FUSELAGE[section]), front = ring(0, FUSELAGE[section + 1]);
+        Point a = back[edge], b = back[(edge + 1) % 8], c = front[(edge + 1) % 8], d = front[edge];
+        Point normal;
+        float wa, wb, wc, wd;
+        if (u >= t) {
+            wa = 1 - u; wb = u - t; wc = t; wd = 0;
+            normal = quad(a,b,c,c).normal;
+        } else {
+            wa = 1 - t; wb = 0; wc = u; wd = t - u;
+            normal = quad(a,c,d,d).normal;
+        }
+        return p(a.x*wa + b.x*wb + c.x*wc + d.x*wd + normal.x*offset,
+                a.y*wa + b.y*wb + c.y*wc + d.y*wd + normal.y*offset,
+                a.z*wa + b.z*wb + c.z*wc + d.z*wd + normal.z*offset);
     }
 
     private static Quad quad(Point a, Point b, Point c, Point d) {
