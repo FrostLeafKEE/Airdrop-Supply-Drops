@@ -45,7 +45,7 @@ public final class AirdropEventGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "airdrop_supply_drops:empty", timeoutTicks = 850)
+    @GameTest(template = "airdrop_supply_drops:empty", timeoutTicks = AirdropEvents.RELEASE_TICK + 610)
     public static void fullEventAndRecovery(GameTestHelper helper) {
         BlockPos relative = new BlockPos(2, 180 - helper.absolutePos(BlockPos.ZERO).getY(), 2);
         var level = helper.getLevel();
@@ -67,12 +67,35 @@ public final class AirdropEventGameTests {
         var initial = manager.find(id);
         var originalDropId = initial.dropId();
         var originalCargo = initial.cargo.copy();
-        helper.runAfterDelay(119, () -> helper.assertTrue(AirdropEvents.get(server).find(id).flares == 0, "No flare before tick 120"));
-        helper.runAfterDelay(122, () -> helper.assertTrue(AirdropEvents.get(server).find(id).flares == 1, "First flare at tick 120"));
-        helper.runAfterDelay(162, () -> helper.assertTrue(AirdropEvents.get(server).find(id).flares == 2, "Second flare at tick 160"));
-        helper.runAfterDelay(170, () -> {
+        var plane = (com.prtsnote.airdrop.world.entity.AirdropPlane) level.getEntity(initial.planeId);
+        var releasePoint = new net.minecraft.world.phys.Vec3(pos.getX() + 0.5, pos.getY() + 60, pos.getZ() + 0.5);
+        helper.assertTrue(plane != null && Math.abs(plane.visualPosition().distanceTo(releasePoint) - 600) < 0.000001,
+                "Spawned aircraft must appear 600 blocks before the landing point");
+        helper.assertTrue(Math.abs(com.prtsnote.airdrop.world.entity.AirdropPlane.visualPosition(initial, AirdropEvents.DEPARTURE_TICK)
+                .distanceTo(releasePoint) - 400) < 0.000001, "Departure must be 400 blocks beyond the landing point");
+        helper.runAfterDelay(AirdropEvents.FLARE_FIRST_TICK - 1, () -> helper.assertTrue(AirdropEvents.get(server).find(id).flares == 0, "No flare before the approach sequence"));
+        helper.runAfterDelay(AirdropEvents.FLARE_FIRST_TICK + 2, () -> helper.assertTrue(AirdropEvents.get(server).find(id).flares == 1, "First flare six seconds before release"));
+        helper.runAfterDelay(AirdropEvents.FLARE_FIRST_TICK + AirdropEvents.FLARE_INTERVAL + 2, () -> helper.assertTrue(AirdropEvents.get(server).find(id).flares == 2, "Second flare four seconds before release"));
+        helper.runAfterDelay(AirdropEvents.FLARE_FIRST_TICK + 50, () -> {
             var old = AirdropEvents.get(server);
             CompoundTag saved = old.save(new CompoundTag(), server.registryAccess());
+            var legacy = saved.copy();
+            legacy.remove("flight_path_version");
+            for (var value : legacy.getList("events", 10)) {
+                var entry = (CompoundTag) value;
+                entry.putLong("started", entry.getLong("started") + AirdropEvents.LEGACY_FLIGHT_AGE_OFFSET);
+            }
+            var migrated = AirdropEvents.load(legacy, server.registryAccess());
+            helper.assertTrue(migrated.find(id).started == old.find(id).started && migrated.find(id).flares == 2,
+                    "Legacy event ages must preserve the visible position and flare progress");
+            var legacyPlane = plane.saveWithoutId(new CompoundTag());
+            legacyPlane.remove("flight_path_version");
+            legacyPlane.putInt("flight_age", plane.flightAge() - AirdropEvents.LEGACY_FLIGHT_AGE_OFFSET);
+            var migratedPlane = com.prtsnote.airdrop.registry.ModEntities.PLANE.get().create(level);
+            migratedPlane.load(legacyPlane);
+            helper.assertTrue(migratedPlane.flightAge() == plane.flightAge()
+                    && migratedPlane.visualPosition().distanceTo(plane.visualPosition()) < 0.000001,
+                    "Legacy aircraft NBT must resume at the same rendered position");
             old.stopSession(server);
             var restored = AirdropEvents.load(saved, server.registryAccess());
             server.overworld().getDataStorage().set("airdrop_supply_drops_events", restored);
@@ -81,26 +104,31 @@ public final class AirdropEventGameTests {
             helper.assertTrue(restored.find(id).flares == 2, "Reload must preserve flare progress");
             helper.assertTrue(restored.find(id).dropId().equals(originalDropId), "Reload must preserve cargo UUID");
         });
-        helper.runAfterDelay(202, () -> helper.assertTrue(AirdropEvents.get(server).find(id).flares == 3, "Third flare at tick 200"));
-        helper.runAfterDelay(239, () -> helper.assertTrue(level.getEntity(originalDropId) == null, "No cargo before all flare rounds finish"));
-        helper.runAfterDelay(245, () -> {
+        helper.runAfterDelay(AirdropEvents.FLARE_FIRST_TICK + 2 * AirdropEvents.FLARE_INTERVAL + 2, () -> helper.assertTrue(AirdropEvents.get(server).find(id).flares == 3, "Third flare two seconds before release"));
+        helper.runAfterDelay(AirdropEvents.RELEASE_TICK - 1, () -> helper.assertTrue(level.getEntity(originalDropId) == null, "No cargo before all flare rounds finish"));
+        helper.runAfterDelay(AirdropEvents.RELEASE_TICK + 5, () -> {
             var event = AirdropEvents.get(server).find(id);
             helper.assertTrue(event.stage == AirdropEvents.Stage.FALLING, "Must transition to falling");
             helper.assertTrue(event.flares == 3 && level.getEntity(originalDropId) != null, "Exactly three rounds before release");
         });
-        helper.runAfterDelay(300, () -> {
+        helper.runAfterDelay(AirdropEvents.RELEASE_TICK + 60, () -> {
             // Simulate an unloaded entity: recovery must reuse the same UUID and saved inventory.
             var drop = level.getEntity(originalDropId);
             helper.assertTrue(drop != null, "Drop must exist before recovery test");
             drop.remove(Entity.RemovalReason.UNLOADED_TO_CHUNK);
         });
-        helper.runAfterDelay(340, () -> {
+        helper.runAfterDelay(AirdropEvents.RELEASE_TICK + 100, () -> {
             var event = AirdropEvents.get(server).find(id);
             helper.assertTrue(level.getEntity(originalDropId) != null, "Missing cargo must recover from saved snapshot; event="
                     + (event == null ? "missing" : event.stage + " at=" + event.ground + " expected=" + pos));
         });
-        helper.runAfterDelay(405, () -> helper.assertTrue(level.getEntity(initial.planeId) == null, "Plane must leave after its flight"));
-        helper.runAfterDelay(800, () -> {
+        helper.runAfterDelay(AirdropEvents.DEPARTURE_TICK - 5, () -> {
+            var departing = (com.prtsnote.airdrop.world.entity.AirdropPlane) level.getEntity(initial.planeId);
+            helper.assertTrue(departing != null && Math.abs(departing.visualPosition().distanceTo(releasePoint) - 395) <= 2,
+                    "Aircraft must continue nearly 400 blocks past the drop before disappearing");
+        });
+        helper.runAfterDelay(AirdropEvents.DEPARTURE_TICK + 5, () -> helper.assertTrue(level.getEntity(initial.planeId) == null, "Plane must leave after its flight"));
+        helper.runAfterDelay(AirdropEvents.RELEASE_TICK + 560, () -> {
             var event = AirdropEvents.get(server).find(id);
             helper.assertTrue(event != null && event.stage == AirdropEvents.Stage.LANDED, "Event must persist through landing; event=" + event
                     + " block=" + level.getBlockState(pos) + " be=" + level.getBlockEntity(pos));

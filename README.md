@@ -8,7 +8,7 @@
 
 By default, a delivery is attempted every **20–30 minutes** in the **Overworld**. A living, non-spectator player is selected, and a safe landing point is sought **64–200 blocks** away. Listen for the aircraft and follow the red smoke to find the delivery.
 
-The aircraft releases three bursts of flares before dropping its cargo. The parachute opens during descent; by default, smoke starts after landing. The server can change its color and enable smoke during descent. Drops can land above water, lava, and other fluids without replacing the fluid blocks. Visibility depends on client render distance and the server's loaded chunks.
+The aircraft appears 600 blocks before the landing point, flies at 20 blocks per second, and leaves 400 blocks beyond it. It flies 60 blocks above the landing point. At normal 20 TPS, it releases three bursts of flares at 24, 26, and 28 seconds, drops its cargo at 30 seconds, and leaves at 50 seconds. The parachute opens during descent; by default, smoke starts after landing. The server can change its color and enable smoke during descent. Drops can land above water, lava, and other fluids without replacing the fluid blocks. Visibility depends on client render distance and the server's loaded chunks.
 
 Crates accelerate under gravity after release, slow as the parachute opens, then descend at a steady **2.4 blocks per second**. Client interpolation fills the movement between server updates; landing and cargo transfer remain server-controlled.
 

@@ -27,8 +27,13 @@ import java.util.*;
 
 /** Authoritative event state. Entity NBT is a snapshot, never a second source of loot. */
 public final class AirdropEvents extends SavedData {
-    public static final int RELEASE_TICK = 240;
-    public static final int DEPARTURE_TICK = 400;
+    // The visible aircraft travels one block per tick: 600 before and 400 after the drop.
+    public static final int RELEASE_TICK = 600;
+    public static final int DEPARTURE_TICK = 1000;
+    public static final int FLARE_FIRST_TICK = RELEASE_TICK - 120;
+    public static final int FLARE_INTERVAL = 40;
+    public static final int FLIGHT_PATH_VERSION = 2;
+    public static final int LEGACY_FLIGHT_AGE_OFFSET = RELEASE_TICK - 240;
     public enum Stage { FLYING, FALLING, LANDED }
     public static final class Event {
         public UUID id, planeId;
@@ -173,7 +178,7 @@ public final class AirdropEvents extends SavedData {
             hold(server, event);
             long age = time - event.started;
             if (event.stage == Stage.FLYING) {
-                while (event.flares < 3 && age >= 120 + event.flares * 40) {
+                while (event.flares < 3 && age >= FLARE_FIRST_TICK + event.flares * FLARE_INTERVAL) {
                     event.flares++;
                     setDirty();
                 }
@@ -263,6 +268,10 @@ public final class AirdropEvents extends SavedData {
                 event.ground = BlockPos.of(item.getLong("ground"));
                 event.started = item.getLong("started"); event.deadline = item.getLong("deadline");
                 event.stage = Stage.valueOf(item.getString("stage"));
+                // Translate old elapsed ages without moving an aircraft or replaying its cargo.
+                if (!tag.contains("flight_path_version") && event.stage != Stage.LANDED) {
+                    event.started -= LEGACY_FLIGHT_AGE_OFFSET;
+                }
                 event.flares = item.getInt("flares"); event.heading = item.getFloat("heading");
                 event.cargo = item.getCompound("cargo");
                 event.settings = com.prtsnote.airdrop.data.AirdropRules.Settings.load(item.contains("airdrop_settings") ? item.getCompound("airdrop_settings") : event.cargo.getCompound("airdrop_settings"));
@@ -273,6 +282,7 @@ public final class AirdropEvents extends SavedData {
         return data;
     }
     @Override public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
+        tag.putInt("flight_path_version", FLIGHT_PATH_VERSION);
         tag.putLong("next_event_at", nextEventAt);
         ListTag list = new ListTag();
         for (Event event : all()) {
