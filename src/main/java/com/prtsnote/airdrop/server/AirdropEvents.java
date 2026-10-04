@@ -47,8 +47,11 @@ public final class AirdropEvents extends SavedData {
         public UUID dropId() { return cargo.getUUID("UUID"); }
     }
     private static final TicketType<UUID> TICKET = TicketType.create("airdrop_event", UUID::compareTo);
+    private static final TicketType<UUID> FLIGHT_TICKET = TicketType.create("airdrop_aircraft", UUID::compareTo);
     private final Map<UUID, Event> events = new LinkedHashMap<>();
     private final Set<UUID> tickets = new HashSet<>();
+    private final Map<UUID, ChunkPos> flightTickets = new HashMap<>();
+    private final Map<UUID, AirdropPlane> aircraft = new HashMap<>();
     private long nextEventAt;
     private long recoveryReadyAt;
     private int scheduledMinSeconds = -1, scheduledMaxSeconds = -1;
@@ -78,6 +81,7 @@ public final class AirdropEvents extends SavedData {
 
     public void stopSession(MinecraftServer server) {
         for (Event event : all()) releaseTicket(server, event);
+        aircraft.clear();
     }
 
     private void hold(MinecraftServer server, Event event) {
@@ -85,12 +89,28 @@ public final class AirdropEvents extends SavedData {
         if (level != null && tickets.add(event.id)) {
             level.getChunkSource().addRegionTicket(TICKET, new ChunkPos(event.ground), 2, event.id);
         }
+        if (level != null) {
+            long age = now(server) - event.started;
+            if (age < DEPARTURE_TICK) {
+                var current = new ChunkPos(BlockPos.containing(AirdropPlane.visualPosition(event, age)));
+                var previous = flightTickets.put(event.id, current);
+                if (!current.equals(previous)) {
+                    level.getChunkSource().addRegionTicket(FLIGHT_TICKET, current, 2, event.id, true);
+                    if (previous != null) level.getChunkSource().removeRegionTicket(FLIGHT_TICKET, previous, 2, event.id, true);
+                }
+            } else releaseFlightTicket(level, event.id);
+        }
+    }
+    private void releaseFlightTicket(ServerLevel level, UUID id) {
+        var previous = flightTickets.remove(id);
+        if (previous != null) level.getChunkSource().removeRegionTicket(FLIGHT_TICKET, previous, 2, id, true);
     }
     private void releaseTicket(MinecraftServer server, Event event) {
         ServerLevel level = level(server, event);
         if (tickets.remove(event.id) && level != null) {
             level.getChunkSource().removeRegionTicket(TICKET, new ChunkPos(event.ground), 2, event.id);
         }
+        if (level != null) releaseFlightTicket(level, event.id);
     }
 
     public UUID begin(ServerLevel level, BlockPos ground, AirdropTypes.Type type) {
@@ -117,13 +137,26 @@ public final class AirdropEvents extends SavedData {
         return event.id;
     }
 
+    private AirdropPlane aircraft(ServerLevel level, Event event) {
+        var cached = aircraft.get(event.id);
+        if (cached != null && !cached.isRemoved() && cached.level() == level && cached.getUUID().equals(event.planeId)) return cached;
+        aircraft.remove(event.id);
+        if (level.getEntity(event.planeId) instanceof AirdropPlane plane) {
+            aircraft.put(event.id, plane);
+            return plane;
+        }
+        return null;
+    }
     private void spawnPlane(ServerLevel level, Event event) {
-        if (level.getEntity(event.planeId) != null) return;
+        if (aircraft(level, event) != null) return;
         AirdropPlane plane = ModEntities.PLANE.get().create(level);
         if (plane == null) return;
         plane.setUUID(event.planeId);
         plane.configure(event.id, event.ground, event.heading, (int) (now(level.getServer()) - event.started));
-        level.addFreshEntity(plane);
+        // The initial point can be outside the selected player's loaded area. Only the
+        // current aircraft region is kept active, never the complete 1000-block route.
+        level.getChunk(plane.blockPosition().getX() >> 4, plane.blockPosition().getZ() >> 4);
+        if (level.addFreshEntity(plane)) aircraft.put(event.id, plane);
     }
 
     public boolean ownsDrop(UUID id, UUID entity) {
@@ -146,7 +179,7 @@ public final class AirdropEvents extends SavedData {
         releaseTicket(server, event);
         ServerLevel level = level(server, event);
         if (level != null) {
-            var plane = level.getEntity(event.planeId);
+            var plane = aircraft(level, event);
             if (plane != null) plane.discard();
             var drop = level.getEntity(event.dropId());
             if (drop != null) drop.discard();
@@ -154,12 +187,13 @@ public final class AirdropEvents extends SavedData {
                     && level.getBlockEntity(event.ground) instanceof AirdropCrateBlockEntity crate
                     && id.equals(crate.eventId())) level.removeBlock(event.ground, false);
         }
+        aircraft.remove(id);
         setDirty();
     }
 
     public void forget(MinecraftServer server, UUID id) {
         Event event = events.remove(id);
-        if (event != null) { releaseTicket(server, event); setDirty(); }
+        if (event != null) { releaseTicket(server, event); aircraft.remove(id); setDirty(); }
     }
 
     public static void onTick(TickEvent.ServerTickEvent tick) {
@@ -171,6 +205,15 @@ public final class AirdropEvents extends SavedData {
         for (Event event : all()) {
             ServerLevel level = level(server, event);
             long age = time - event.started;
+            // A newly loaded flight region can be visible before its entity-ticking
+            // future completes. The authoritative event clock still drives the aircraft.
+            if (level != null) {
+                var plane = aircraft(level, event);
+                if (plane != null) {
+                    if (age >= DEPARTURE_TICK) plane.discard();
+                    else plane.advanceTo((int) age);
+                }
+            }
             if (event.stage == Stage.LANDED && age >= DEPARTURE_TICK) {
                 forget(server, event.id);
                 continue;

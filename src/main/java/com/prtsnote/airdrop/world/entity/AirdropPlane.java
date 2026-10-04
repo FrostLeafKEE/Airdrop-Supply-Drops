@@ -17,10 +17,12 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.network.NetworkHooks;
 import java.util.UUID;
 
-/** Anchored in the landing chunk; the renderer projects the flight path. */
+/** The tracked entity follows the flight path; clients smooth the same world-space path. */
 public final class AirdropPlane extends Entity {
     private static final EntityDataAccessor<Integer> AGE = SynchedEntityData.defineId(AirdropPlane.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Float> HEADING = SynchedEntityData.defineId(AirdropPlane.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<BlockPos> GROUND = SynchedEntityData.defineId(AirdropPlane.class, EntityDataSerializers.BLOCK_POS);
+    private static final EntityDataAccessor<Boolean> CONFIGURED = SynchedEntityData.defineId(AirdropPlane.class, EntityDataSerializers.BOOLEAN);
     private UUID eventId;
     private final FlightAnimationClock animationClock = new FlightAnimationClock();
     public AirdropPlane(EntityType<? extends AirdropPlane> type, Level level) {
@@ -28,7 +30,10 @@ public final class AirdropPlane extends Entity {
         noPhysics = true;
         setNoGravity(true);
     }
-    @Override protected void defineSynchedData() { entityData.define(AGE, 0); entityData.define(HEADING, 0F); }
+    @Override protected void defineSynchedData() {
+        entityData.define(AGE, 0); entityData.define(HEADING, 0F);
+        entityData.define(GROUND, BlockPos.ZERO); entityData.define(CONFIGURED, false);
+    }
     public int flightAge() { return entityData.get(AGE); }
     public float heading() { return entityData.get(HEADING); }
     public double visualFlightAge(float partialTick) {
@@ -36,18 +41,33 @@ public final class AirdropPlane extends Entity {
     }
     @Override public void onSyncedDataUpdated(EntityDataAccessor<?> key) {
         super.onSyncedDataUpdated(key);
-        if (AGE.equals(key) && level().isClientSide) animationClock.synchronize(flightAge());
+        if ((AGE.equals(key) || CONFIGURED.equals(key)) && level().isClientSide) animationClock.synchronize(flightAge());
     }
     public Vec3 visualPosition() {
+        return visualPosition(1);
+    }
+    public Vec3 visualPosition(float partialTick) {
+        if (!entityData.get(CONFIGURED)) return getPosition(partialTick);
+        return flightPosition(visualFlightAge(partialTick));
+    }
+    private Vec3 flightPosition(double age) {
+        var ground = entityData.get(GROUND);
         double angle = Math.toRadians(heading());
-        double offset = visualFlightAge(1) - AirdropEvents.RELEASE_TICK;
-        return position().add(Math.sin(angle) * offset, 0, Math.cos(angle) * offset);
+        double offset = age - AirdropEvents.RELEASE_TICK;
+        return new Vec3(ground.getX() + 0.5 + Math.sin(angle) * offset,
+                ground.getY() + 60, ground.getZ() + 0.5 + Math.cos(angle) * offset);
     }
     public void configure(UUID id, BlockPos ground, float heading, int age) {
         eventId = id;
+        entityData.set(GROUND, ground.immutable());
         entityData.set(AGE, age);
         entityData.set(HEADING, heading);
-        setPos(ground.getX() + 0.5, ground.getY() + 60, ground.getZ() + 0.5);
+        entityData.set(CONFIGURED, true);
+        setPos(flightPosition(age));
+    }
+    public void advanceTo(int age) {
+        entityData.set(AGE, age);
+        setPos(flightPosition(age));
     }
     @Override public void tick() {
         super.tick();
@@ -60,7 +80,7 @@ public final class AirdropPlane extends Entity {
         if (event == null || !event.planeId.equals(getUUID())) { discard(); return; }
         long age = AirdropEvents.now(level.getServer()) - event.started;
         if (age >= AirdropEvents.DEPARTURE_TICK) { discard(); return; }
-        entityData.set(AGE, (int) age);
+        advanceTo((int) age);
     }
     public static Vec3 visualPosition(AirdropEvents.Event event, double age) {
         double angle = Math.toRadians(event.heading);
@@ -98,13 +118,19 @@ public final class AirdropPlane extends Entity {
     @Override protected void addAdditionalSaveData(CompoundTag tag) {
         if (eventId != null) tag.putUUID("event_id", eventId);
         tag.putInt("flight_path_version", AirdropEvents.FLIGHT_PATH_VERSION);
+        tag.putLong("flight_origin", entityData.get(GROUND).asLong());
         tag.putInt("flight_age", flightAge()); tag.putFloat("heading", heading());
     }
     @Override protected void readAdditionalSaveData(CompoundTag tag) {
         eventId = tag.hasUUID("event_id") ? tag.getUUID("event_id") : null;
         int age = tag.getInt("flight_age");
         if (!tag.contains("flight_path_version")) age += AirdropEvents.LEGACY_FLIGHT_AGE_OFFSET;
+        // Before 1.0.11 the saved entity stayed above the landing point, not on the visible path.
+        entityData.set(GROUND, tag.contains("flight_origin") ? BlockPos.of(tag.getLong("flight_origin"))
+                : BlockPos.containing(getX(), getY() - 60, getZ()));
         entityData.set(AGE, age); entityData.set(HEADING, tag.getFloat("heading"));
+        entityData.set(CONFIGURED, true);
+        setPos(flightPosition(age));
     }
     @Override public Packet<ClientGamePacketListener> getAddEntityPacket() { return NetworkHooks.getEntitySpawningPacket(this); }
 }

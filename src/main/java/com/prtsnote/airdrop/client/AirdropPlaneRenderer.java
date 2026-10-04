@@ -2,7 +2,6 @@ package com.prtsnote.airdrop.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
-import com.prtsnote.airdrop.server.AirdropEvents;
 import com.prtsnote.airdrop.world.entity.AirdropPlane;
 import com.prtsnote.airdrop.world.entity.AircraftAppearance;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -13,6 +12,7 @@ import net.minecraft.client.renderer.culling.Frustum;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
 
 public final class AirdropPlaneRenderer extends EntityRenderer<AirdropPlane> {
     private static final ResourceLocation BODY = TexturedBox.texture("aircraft_body"), FRAME = TexturedBox.texture("aircraft_frame"),
@@ -20,13 +20,18 @@ public final class AirdropPlaneRenderer extends EntityRenderer<AirdropPlane> {
     private static final ResourceLocation WHITE = new ResourceLocation("minecraft", "textures/misc/white.png");
     public AirdropPlaneRenderer(EntityRendererProvider.Context context) { super(context); }
     @Override public boolean shouldRender(AirdropPlane plane, Frustum frustum, double x, double y, double z) {
-        return plane.distanceToSqr(x, y, z) < 512 * 512;
+        return plane.visualPosition().distanceToSqr(x, y, z) < 512 * 512;
     }
     @Override public void render(AirdropPlane plane, float yaw, float partial, PoseStack pose, MultiBufferSource buffers, int light) {
         pose.pushPose();
         double visualAge = plane.visualFlightAge(partial);
+        var position = plane.visualPosition(partial);
+        // LevelRenderer interpolates xOld/yOld/zOld, not Entity.getPosition's xo/yo/zo.
+        // Cancel that raw packet interpolation before applying the smooth flight clock.
+        pose.translate(position.x - Mth.lerp((double) partial,plane.xOld,plane.getX()),
+                position.y - Mth.lerp((double) partial,plane.yOld,plane.getY()),
+                position.z - Mth.lerp((double) partial,plane.zOld,plane.getZ()));
         pose.mulPose(Axis.YP.rotationDegrees(plane.heading()));
-        pose.translate(0, 0, visualAge - AirdropEvents.RELEASE_TICK);
         drawParts(AircraftAppearance.BODY, pose, buffers, light);
         for (float x : new float[]{-AircraftAppearance.ENGINE_X, AircraftAppearance.ENGINE_X}) {
             pose.pushPose(); pose.translate(x, AircraftAppearance.ENGINE_Y, AircraftAppearance.PROPELLER_Z);

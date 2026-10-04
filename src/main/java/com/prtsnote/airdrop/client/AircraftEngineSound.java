@@ -7,7 +7,7 @@ import net.minecraft.client.resources.sounds.AbstractTickableSoundInstance;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.RandomSource;
 
-/** The entity is anchored; audio must follow the visible aircraft instead. */
+/** Positional audio follows the same smoothed world-space flight path as the renderer. */
 public final class AircraftEngineSound extends AbstractTickableSoundInstance {
     private final AirdropPlane plane;
 

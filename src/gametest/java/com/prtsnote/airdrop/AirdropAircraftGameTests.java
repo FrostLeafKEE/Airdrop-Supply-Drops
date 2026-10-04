@@ -100,6 +100,33 @@ public final class AirdropAircraftGameTests {
 
     private static Vec3 vector(AircraftAppearance.Point point) { return new Vec3(point.x(),point.y(),point.z()); }
 
+    @GameTest(template = "empty")
+    public static void aircraftTrackingPositionAndOldAnchorSaveAgree(GameTestHelper helper) {
+        var ground = helper.absolutePos(new BlockPos(2, 2, 2));
+        var plane = ModEntities.PLANE.get().create(helper.getLevel());
+        plane.configure(UUID.randomUUID(),ground,90,100);
+        var expected = new Vec3(ground.getX()+0.5-500,ground.getY()+60,ground.getZ()+0.5);
+        helper.assertTrue(plane.position().distanceTo(expected) < 1e-5 && plane.visualPosition().distanceTo(expected) < 1e-5,
+                "The tracked aircraft must occupy its visible position, 500 blocks before the drop");
+        var saved = plane.saveWithoutId(new CompoundTag());
+        var restored = ModEntities.PLANE.get().create(helper.getLevel());
+        restored.load(saved);
+        helper.assertTrue(restored.position().distanceTo(expected) < 1e-5 && restored.visualPosition().distanceTo(expected) < 1e-5,
+                "Reloading a moving aircraft must not apply the flight offset twice");
+        var old = saved.copy();
+        old.remove("flight_origin");
+        plane.setPos(ground.getX()+0.5,ground.getY()+60,ground.getZ()+0.5);
+        old.put("Pos",plane.saveWithoutId(new CompoundTag()).getList("Pos",6));
+        var migrated = ModEntities.PLANE.get().create(helper.getLevel());
+        migrated.load(old);
+        helper.assertTrue(migrated.position().distanceTo(expected) < 1e-5 && migrated.visualPosition().distanceTo(expected) < 1e-5,
+                "A pre-1.0.11 stationary anchor save must move onto the same visible flight path");
+        helper.assertTrue(com.prtsnote.airdrop.config.AirdropConfig.MIN_DROP_DISTANCE.getDefault() == 64
+                        && com.prtsnote.airdrop.config.AirdropConfig.MAX_DROP_DISTANCE.getDefault() == 150,
+                "New worlds must use the 64-150 horizontal-block landing range");
+        helper.succeed();
+    }
+
     private static boolean intersects(Vec3 origin, Vec3 direction, AircraftAppearance.Point a, AircraftAppearance.Point b, AircraftAppearance.Point c) {
         var edge1 = vector(b).subtract(vector(a));
         var edge2 = vector(c).subtract(vector(a));

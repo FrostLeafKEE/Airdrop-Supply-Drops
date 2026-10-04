@@ -106,7 +106,9 @@ The global default remains `["minecraft:overworld"]`. IDs and tags can be mixed 
 
 The aircraft's visible route starts **600 blocks before** the landing point and ends **400 blocks after** it, at a height of 60 blocks above that point. Heading remains random. Flight speed stays at one block per tick (20 blocks per second at 20 TPS): flares release at 24, 26, and 28 seconds; cargo releases at 30 seconds; the aircraft departs at 50 seconds.
 
-These offsets are relative to the landing point, not the selected player's location. With the default 64–200-block landing radius and a stationary player, the horizontal distance is about 400–800 blocks at appearance and 200–600 blocks at departure. Client visibility still depends on entity tracking and the landing chunk being available. Engine sound follows the visible aircraft and fades to silence beyond 384 blocks; a distant aircraft can therefore be visible before it becomes audible.
+These offsets are relative to the landing point, not the selected player's location. With the default 64–150-block landing radius and a stationary player, the horizontal distance is about 450–750 blocks at appearance and 250–550 blocks at departure. Client visibility depends on entity tracking and streamed flight chunks. Engine sound follows the visible aircraft and fades to silence beyond 384 blocks; visibility and audibility remain limited by the client's tracking/view settings.
+
+Since 1.0.11 the aircraft entity moves at its actual flight position instead of staying above the landing point. Model interpolation, server tracking and engine audio follow the same path, so approaching an aircraft does not move the player away from a hidden stationary anchor. A moving region ticket keeps only the current aircraft area active; it is moved between chunks and released on departure, cancellation or server shutdown. The landing area remains active while cargo is in flight. Old stationary-anchor entity saves are migrated using their captured flight age and heading.
 
 Event and aircraft NBT from older builds translate their elapsed flight age during loading, preserving the aircraft's current position, flare progress, and cargo phase. Already-released cargo is not released again. In 1.0.9, landed crate expiration fields no longer delete blocks or supplies. The longer route is built in and is not a datapack or server-config setting.
 
@@ -148,7 +150,7 @@ The following global defaults can also be overridden in a type's `settings`:
 | Setting | Default | Range and behavior |
 | --- | --- | --- |
 | `min_drop_distance` | `64` | Horizontal blocks; integer 0–200. |
-| `max_drop_distance` | `200` | Integer 0–200; at least the resolved minimum. |
+| `max_drop_distance` | `150` | Integer 0–200; at least the resolved minimum. |
 | `allow_liquid_landing` | `true` | Land above water, lava, or modded fluids without replacing them. |
 
 A narrow distance range or low view distance can prevent finding a landing point. Candidate chunks must already be loaded. If fluid landing is disabled and changed terrain causes contact with fluid during descent, the event and cargo are deleted.
@@ -157,7 +159,9 @@ Distance is measured horizontally from the selected player's position at event c
 
 Crates have a fixed 27-slot inventory. Players can only take items out. Automated insertion/extraction is disabled. Crates and remaining contents persist indefinitely; mining drops four oak planks plus remaining supplies, with the same plank count for hand mining, normal tools, Silk Touch and Fortune. Pick-block returns no crate item. Smoke stops after 6000 game ticks from landing, or earlier when emptied. Its absolute deadline is saved and is not reset by chunk loading or a new singleplayer session. Color and airborne emission remain server settings; the five-minute landed duration is fixed.
 
-Version 1.0.10 narrows particle spawn offsets and limits sideways drift and sprite growth. Smoke rises at 0.14 blocks per tick for 160–179 ticks, producing a tall thin plume with a fading top. Particle packets continue to use the server's RGB color and a 256-block recipient limit; actual visibility depends on loaded crate chunks and client particle/render settings. Aircraft lights use exposed fixtures, a steady white tail light, and an additive shader that does not darken downward-facing lamps. Their glow still respects opaque geometry and fog; it does not illuminate terrain.
+Version 1.0.11 uses a roughly 13-block smoke column that gently spreads sideways with height: smoke rises at 0.10 blocks per tick for 120–129 ticks, with limited sideways drift and gradual sprite growth. Particle packets continue to use the server's RGB color and a 256-block recipient limit; actual visibility depends on loaded crate chunks and client particle/render settings. Aircraft lights use exposed fixtures, a steady white tail light, and an additive shader that does not darken downward-facing lamps. Their glow still respects opaque geometry and fog; it does not illuminate terrain.
+
+Existing worlds keep their saved distance settings. To apply the new default there, set `min_drop_distance = 64` and `max_drop_distance = 150` in that world's server TOML. Type-specific distance overrides continue to take precedence. Install matching 1.0.11 client and server versions for the updated aircraft metadata.
 
 The former server keys `max_active_events`, `landed_lifetime_seconds` and `reset_on_rejoin` no longer control behavior and can be removed from old TOML files. Valid legacy type fields `landed_lifetime_seconds` and `reset_on_rejoin` are still accepted, but ignored, so existing packs continue loading. Old NBT timer fields are ignored for block/inventory lifetime; when possible, the former expiration and captured lifetime recover the original landing time for the new five-minute smoke limit. Completed landing/flight records retire without loading or removing their crate chunks; completed crates no longer appear in `status` or support cancellation by event UUID.
 
