@@ -12,6 +12,8 @@ The aircraft releases three bursts of flares before dropping its cargo. The para
 
 Crates accelerate under gravity after release, slow as the parachute opens, then descend at a steady **2.4 blocks per second**. Client interpolation fills the movement between server updates; landing and cargo transfer remain server-controlled.
 
+The aircraft has a tapered fuselage, sloped cockpit glazing, swept wings, detailed engine nacelles and four-bladed propellers. Red and green navigation lights mark its wing tips; white wing-tip and tail strobes flash twice every 1.5 seconds, with alternating red beacons above and below the fuselage. The lights remain bright in darkness so you can follow night deliveries.
+
 The default limit is one active event across the server, including its landed crate. If no suitable player, loaded landing area, or event slot is available, the scheduler retries after one minute.
 
 ## Collecting supplies
