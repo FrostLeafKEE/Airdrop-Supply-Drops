@@ -67,16 +67,24 @@ public final class AirdropEventGameTests {
         var initial = manager.find(id);
         var originalDropId = initial.dropId();
         var originalCargo = initial.cargo.copy();
-        var plane = (com.prtsnote.airdrop.world.entity.AirdropPlane) level.getEntity(initial.planeId);
         var releasePoint = new net.minecraft.world.phys.Vec3(pos.getX() + 0.5, pos.getY() + 60, pos.getZ() + 0.5);
-        helper.assertTrue(plane != null && Math.abs(plane.visualPosition().distanceTo(releasePoint) - 600) < 0.000001,
+        helper.assertTrue(Math.abs(com.prtsnote.airdrop.world.entity.AirdropPlane.visualPosition(initial,0).distanceTo(releasePoint) - 600) < 0.000001,
                 "Spawned aircraft must appear 600 blocks before the landing point");
+        // New flight regions and entity storage become accessible asynchronously.
+        helper.runAfterDelay(100, () -> {
+            var moving = aircraft(AirdropEvents.get(server),id);
+            helper.assertTrue(moving != null && moving.position().distanceTo(moving.visualPosition()) < 0.000001
+                            && Math.abs(moving.position().distanceTo(releasePoint)-500) < 3,
+                    "An aircraft must keep moving through remote flight chunks: "
+                            + (moving == null ? "not accessible" : "age="+moving.flightAge()+" distance="+moving.position().distanceTo(releasePoint)));
+        });
         helper.assertTrue(Math.abs(com.prtsnote.airdrop.world.entity.AirdropPlane.visualPosition(initial, AirdropEvents.DEPARTURE_TICK)
                 .distanceTo(releasePoint) - 400) < 0.000001, "Departure must be 400 blocks beyond the landing point");
         helper.runAfterDelay(AirdropEvents.FLARE_FIRST_TICK - 1, () -> helper.assertTrue(AirdropEvents.get(server).find(id).flares == 0, "No flare before the approach sequence"));
         helper.runAfterDelay(AirdropEvents.FLARE_FIRST_TICK + 2, () -> helper.assertTrue(AirdropEvents.get(server).find(id).flares == 1, "First flare six seconds before release"));
         helper.runAfterDelay(AirdropEvents.FLARE_FIRST_TICK + AirdropEvents.FLARE_INTERVAL + 2, () -> helper.assertTrue(AirdropEvents.get(server).find(id).flares == 2, "Second flare four seconds before release"));
         helper.runAfterDelay(AirdropEvents.FLARE_FIRST_TICK + 50, () -> {
+            var plane = aircraft(AirdropEvents.get(server),id);
             var old = AirdropEvents.get(server);
             CompoundTag saved = old.save(new CompoundTag(), server.registryAccess());
             var legacy = saved.copy();
@@ -123,7 +131,7 @@ public final class AirdropEventGameTests {
                     + (event == null ? "missing" : event.stage + " at=" + event.ground + " expected=" + pos));
         });
         helper.runAfterDelay(AirdropEvents.DEPARTURE_TICK - 5, () -> {
-            var departing = (com.prtsnote.airdrop.world.entity.AirdropPlane) level.getEntity(initial.planeId);
+            var departing = aircraft(AirdropEvents.get(server),id);
             helper.assertTrue(departing != null && Math.abs(departing.visualPosition().distanceTo(releasePoint) - 395) <= 2,
                     "Aircraft must continue nearly 400 blocks past the drop before disappearing");
             helper.assertTrue(AirdropEvents.get(server).begin(level,pos.east(2),type) == null,
@@ -178,6 +186,17 @@ public final class AirdropEventGameTests {
         var restored = AirdropEvents.load(scheduler.save(new CompoundTag(), helper.getLevel().registryAccess()), helper.getLevel().registryAccess());
         helper.assertTrue(restored.nextEventAt() == next, "Restart must preserve next scheduled event");
         helper.succeed();
+    }
+
+    private static com.prtsnote.airdrop.world.entity.AirdropPlane aircraft(AirdropEvents manager,java.util.UUID id) {
+        // The uncapped GameTest server outruns asynchronous remote chunk visibility.
+        // Inspect the actual live aircraft, including while that visibility is pending.
+        try {
+            var field = AirdropEvents.class.getDeclaredField("aircraft");
+            field.setAccessible(true);
+            var value = ((java.util.Map<?,?>) field.get(manager)).get(id);
+            return value instanceof com.prtsnote.airdrop.world.entity.AirdropPlane plane ? plane : null;
+        } catch (ReflectiveOperationException error) { throw new AssertionError(error); }
     }
 
     @GameTest(template = "airdrop_supply_drops:empty", batch = "lifecycle")

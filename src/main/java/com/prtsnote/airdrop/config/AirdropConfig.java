@@ -26,7 +26,7 @@ public final class AirdropConfig {
 
     public static final ForgeConfigSpec.IntValue MAX_DROP_DISTANCE = BUILDER
             .comment("Maximum horizontal distance from the selected player to the drop point.")
-            .defineInRange("max_drop_distance", 200, 0, 200);
+            .defineInRange("max_drop_distance", 150, 0, 200);
 
     public static final ForgeConfigSpec.BooleanValue ALLOW_LIQUID_LANDING = BUILDER
             .comment("Allow crates to land above liquid surfaces without replacing the liquid.")
