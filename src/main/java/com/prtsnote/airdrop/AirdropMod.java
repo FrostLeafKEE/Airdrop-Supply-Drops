@@ -19,6 +19,8 @@ public final class AirdropMod {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
 
         ModBlocks.BLOCKS.register(modEventBus);
+        com.prtsnote.airdrop.registry.ModItems.ITEMS.register(modEventBus);
+        com.prtsnote.airdrop.registry.ModLootModifiers.MODIFIERS.register(modEventBus);
         ModBlockEntities.BLOCK_ENTITIES.register(modEventBus);
         ModMenuTypes.MENUS.register(modEventBus);
         com.prtsnote.airdrop.registry.ModEntities.ENTITIES.register(modEventBus);

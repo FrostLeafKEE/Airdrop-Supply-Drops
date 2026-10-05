@@ -215,7 +215,7 @@ TACZ's block blacklist takes precedence over the whitelist. A later datapack usi
 
 ## Resource packs and persistence
 
-Client resources use `assets/airdrop_supply_drops/`. Follow `src/main/resources/assets/airdrop_supply_drops/` to replace textures, sounds, block models, and translations. Java-defined entity geometry has no arbitrary model-loading interface. The server's `validate` command does not check resource packs.
+Client resources use `assets/airdrop_supply_drops/`. Follow `src/main/resources/assets/airdrop_supply_drops/` to replace textures, sounds, block models, and translations. Parachute canopy models and cord attachment points can also be replaced; see [PARACHUTE-PBR.md](PARACHUTE-PBR.md) and the separate `example_resourcepack`. Aircraft geometry remains Java-defined. LabPBR 1.3 maps are bundled and become available automatically with a compatible shader pack; vanilla uses the original colour textures. The server's `validate` command does not check resource packs.
 
 Cargo, display name, appearance, and resolved settings are saved when an event starts. Reloading affects future deliveries; existing ones keep their loot. Removing a type does not reroll an existing crate. Landed supplies persist until collected or the block is removed. Smoke deadlines survive unloading and restart; player mining drops remaining supplies and four oak planks.
 
@@ -227,3 +227,7 @@ Cargo, display name, appearance, and resolved settings are saved when an event s
 4. Reopen singleplayer and unload/reload a crate chunk; verify inventory persistence and that smoke does not get a new five-minute window.
 5. Shorten automatic intervals in a test world and change weather/time to check conditions. Administrator commands bypass these conditions.
 6. Introduce a misspelled item ID or setting in a test copy, verify diagnostics, then fix it and reload.
+
+## Signal tube integration
+
+See [SIGNAL-TUBE.md](SIGNAL-TUBE.md) for server probabilities, projectile settings, type binding, commands and chest loot customization. Pack-defined loaded types participate in random and bound tube selection. There is no built-in crafting recipe.

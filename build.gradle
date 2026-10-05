@@ -54,6 +54,10 @@ minecraft {
 
         client {
             property 'forge.enabledGameTestNamespaces', mod_id
+            if (project.hasProperty('heldPreview')) {
+                workingDirectory project.file('run-clientcheck-1.21.1')
+                property 'airdrop.heldPreview', 'true'
+            }
             if (project.hasProperty('restartCheck')) {
                 workingDirectory project.file('run-clientcheck-1.21.1')
                 property 'airdrop.restartCheck', project.property('restartCheck')
@@ -173,8 +177,8 @@ tasks.register('releaseSources', Zip) {
     destinationDirectory = layout.buildDirectory.dir('libs')
     from(projectDir) {
         include 'src/**', 'gradle/**', 'gradlew', 'gradlew.bat', 'build.gradle', 'settings.gradle', 'gradle.properties'
-        include 'LICENSE', 'README.md', 'INTEGRATION.md', 'ID-MIGRATION.md', '.gitignore', '.gitattributes'
-        include 'example_datapack/**', 'art/**', 'audio/**'
+        include 'LICENSE', 'README.md', 'INTEGRATION.md', 'ID-MIGRATION.md', 'PARACHUTE-PBR.md', 'SIGNAL-TUBE.md', '.gitignore', '.gitattributes'
+        include 'example_datapack/**', 'example_resourcepack/**', 'art/**', 'audio/**'
     }
 }
 
@@ -183,6 +187,13 @@ tasks.register('releaseExampleDatapack', Zip) {
     destinationDirectory = layout.buildDirectory.dir('libs')
     from('example_datapack')
     from('INTEGRATION.md')
+}
+
+tasks.register('releaseExampleResourcepack', Zip) {
+    archiveFileName = "${mod_id}-example-resourcepack.zip"
+    destinationDirectory = layout.buildDirectory.dir('libs')
+    from('example_resourcepack') { exclude 'README.md' }
+    from('PARACHUTE-PBR.md')
 }
 
 publishing {

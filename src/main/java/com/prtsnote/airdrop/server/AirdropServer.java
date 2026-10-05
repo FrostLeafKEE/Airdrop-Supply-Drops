@@ -53,6 +53,10 @@ public final class AirdropServer {
 
     public static void onCommands(RegisterCommandsEvent event) {
         event.getDispatcher().register(Commands.literal("airdrop_supply_drops").requires(source -> source.hasPermission(2))
+                .then(Commands.literal("signal").executes(context -> giveSignal(context.getSource(), null))
+                        .then(Commands.argument("type", ResourceLocationArgument.id())
+                                .suggests((context, builder) -> SharedSuggestionProvider.suggestResource(AirdropTypes.all().keySet(), builder))
+                                .executes(context -> giveSignal(context.getSource(), ResourceLocationArgument.getId(context, "type")))))
                 .then(Commands.literal("validate").executes(context -> {
                     var errors = AirdropTypes.validate(context.getSource().getServer());
                     for (String error : errors) context.getSource().sendFailure(Component.literal(error));
@@ -135,6 +139,22 @@ public final class AirdropServer {
                             source.sendSuccess(() -> Component.literal("Airdrop crate placed at " + pos.toShortString()), true);
                             return 1;
                         }))));
+    }
+
+    private static int giveSignal(net.minecraft.commands.CommandSourceStack source, net.minecraft.resources.ResourceLocation id)
+            throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+        var type = id == null ? null : AirdropTypes.all().get(id);
+        if (id != null && type == null) {
+            source.sendFailure(Component.translatable("message.airdrop_supply_drops.signal_unknown_type"));
+            return 0;
+        }
+        var stack = type == null ? com.prtsnote.airdrop.world.item.SignalTubeItem.randomStack()
+                : com.prtsnote.airdrop.world.item.SignalTubeItem.boundStack(type);
+        var player = source.getPlayerOrException();
+        var name = stack.getHoverName();
+        if (!player.getInventory().add(stack)) player.drop(stack, false);
+        source.sendSuccess(() -> Component.translatable("message.airdrop_supply_drops.signal_given", name), true);
+        return 1;
     }
 
     public static BlockPos findLanding(net.minecraft.server.level.ServerPlayer player) {
