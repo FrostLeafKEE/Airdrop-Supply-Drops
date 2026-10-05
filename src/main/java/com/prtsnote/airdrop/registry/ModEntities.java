@@ -15,6 +15,10 @@ public final class ModEntities {
                     .sized(0.98F, 0.98F).clientTrackingRange(32).updateInterval(3).fireImmune()
                     .build("airdrop_supply_drops:falling_airdrop"));
     private ModEntities() {}
+    public static final RegistryObject<EntityType<com.prtsnote.airdrop.world.entity.SignalFlare>> SIGNAL_FLARE = ENTITIES.register("signal_flare",
+            () -> EntityType.Builder.<com.prtsnote.airdrop.world.entity.SignalFlare>of(com.prtsnote.airdrop.world.entity.SignalFlare::new, MobCategory.MISC)
+                    .sized(.2F, .2F).clientTrackingRange(16).updateInterval(1).fireImmune()
+                    .build("airdrop_supply_drops:signal_flare"));
     public static final RegistryObject<EntityType<com.prtsnote.airdrop.world.entity.AirdropPlane>> PLANE = ENTITIES.register("airdrop_plane",
             () -> EntityType.Builder.<com.prtsnote.airdrop.world.entity.AirdropPlane>of(com.prtsnote.airdrop.world.entity.AirdropPlane::new, MobCategory.MISC)
                     .sized(1, 1).clientTrackingRange(32).updateInterval(3).fireImmune().build("airdrop_supply_drops:airdrop_plane"));

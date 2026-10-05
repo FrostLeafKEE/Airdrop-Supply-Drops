@@ -14,5 +14,16 @@
   "message.airdrop_supply_drops.invalid_loot": "无法开始：战利品表 %s 不存在或无效，请检查数据包。",
   "message.airdrop_supply_drops.no_landing": "无法开始：在周围 %s～%s 格的已加载区域内未找到安全落点，请到开阔区域并等待区块加载后重试。",
   "message.airdrop_supply_drops.start_failed": "无法创建空投事件，请检查游戏日志。",
-  "subtitles.airdrop_supply_drops.descent_wind": "空投迎风下降"
+  "subtitles.airdrop_supply_drops.descent_wind": "空投迎风下降",
+  "item.airdrop_supply_drops.signal_tube": "信号棒",
+  "item.airdrop_supply_drops.signal_tube.typed": "信号棒 · %s",
+  "item.airdrop_supply_drops.signal_tube.invalid": "无效类型",
+  "entity.airdrop_supply_drops.signal_flare": "信号弹",
+  "tooltip.airdrop_supply_drops.signal_tube.random": "无后缀：随机呼叫一种空投",
+  "tooltip.airdrop_supply_drops.signal_tube.typed": "呼叫空投：%s",
+  "tooltip.airdrop_supply_drops.signal_tube.use": "右键朝瞄准方向发射；成功呼叫后消耗一根",
+  "message.airdrop_supply_drops.signal_dimension": "该维度不允许使用信号棒呼叫空投。",
+  "message.airdrop_supply_drops.signal_unknown_type": "空投类型不存在或不可用；信号棒未消耗。",
+  "message.airdrop_supply_drops.signal_requested": "信号已发射，正在呼叫：%s。",
+  "message.airdrop_supply_drops.signal_given": "已领取：%s"
 }

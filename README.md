@@ -69,6 +69,8 @@ Commands require operator permission level 2 or cheats in singleplayer:
 
 ## Building from source
 
+Client resource packs can replace the parachute canopy and suspension rig. Normal and material maps for crates, aircraft and parachutes are bundled in LabPBR 1.3 format and are used automatically by compatible shaders; ordinary rendering keeps the original textures. See [the model and material guide](PARACHUTE-PBR.md) for Blockbench projects, override paths, the example resource pack and shader requirements.
+
 Install **JDK 17** for this branch and set `JAVA_HOME`. The Gradle wrapper downloads tools and dependencies on its first run.
 
 ```sh
@@ -84,3 +86,7 @@ Report bugs through [GitHub Issues](https://github.com/FrostLeafKEE/Airdrop-Supp
 ## Credits and license
 
 Created by **FrostLeafKEE**. Licensed under **LGPL-3.0-only**; see [LICENSE](LICENSE). Texture sources and rebuild instructions are in [art](art/README.md), and original procedural sound sources are in [audio](audio/README.md).
+
+## Signal tubes
+
+Single-use signal tubes request random or type-bound deliveries and spawn as rare bonuses in vanilla structure chests. They have no default recipe. See [signal tube settings and commands](SIGNAL-TUBE.md).

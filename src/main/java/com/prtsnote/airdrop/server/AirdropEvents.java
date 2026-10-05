@@ -261,13 +261,21 @@ public final class AirdropEvents extends SavedData {
         return chooseType(level, AirdropTypes.all().values());
     }
 
+    public static AirdropTypes.Type chooseType(ServerLevel level, net.minecraft.util.RandomSource random) {
+        return chooseType(level, AirdropTypes.all().values(), random);
+    }
+
     private static AirdropTypes.Type chooseType(ServerLevel level, Collection<AirdropTypes.Type> candidates) {
+        return chooseType(level, candidates, level.random);
+    }
+
+    private static AirdropTypes.Type chooseType(ServerLevel level, Collection<AirdropTypes.Type> candidates, net.minecraft.util.RandomSource random) {
         var valid = candidates.stream()
                 .filter(type -> level.getServer().getLootData().getLootTable(type.lootTable()) != LootTable.EMPTY)
                 .sorted(Comparator.comparing(type -> type.id().toString())).toList();
         long total = valid.stream().mapToLong(AirdropTypes.Type::weight).sum();
         if (total == 0) return null;
-        long choice = Math.floorMod(level.random.nextLong(), total);
+        long choice = Math.floorMod(random.nextLong(), total);
         for (var type : valid) {
             choice -= type.weight();
             if (choice < 0) return type;

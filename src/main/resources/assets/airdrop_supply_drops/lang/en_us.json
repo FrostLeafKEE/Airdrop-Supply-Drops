@@ -14,5 +14,16 @@
   "message.airdrop_supply_drops.invalid_loot": "Cannot start: loot table %s is missing or invalid. Check your datapack.",
   "message.airdrop_supply_drops.no_landing": "Cannot start: no safe landing point in the loaded area %s-%s blocks away. Move to open terrain and let chunks load, then retry.",
   "message.airdrop_supply_drops.start_failed": "Could not create the airdrop event. Check the game log.",
-  "subtitles.airdrop_supply_drops.descent_wind": "Airdrop drifts in the wind"
+  "subtitles.airdrop_supply_drops.descent_wind": "Airdrop drifts in the wind",
+  "item.airdrop_supply_drops.signal_tube": "Signal Tube",
+  "item.airdrop_supply_drops.signal_tube.typed": "Signal Tube · %s",
+  "item.airdrop_supply_drops.signal_tube.invalid": "Invalid Type",
+  "entity.airdrop_supply_drops.signal_flare": "Signal Flare",
+  "tooltip.airdrop_supply_drops.signal_tube.random": "No suffix: requests a random supply drop",
+  "tooltip.airdrop_supply_drops.signal_tube.typed": "Requests supply type: %s",
+  "tooltip.airdrop_supply_drops.signal_tube.use": "Right-click to fire along your aim; a successful request uses one tube",
+  "message.airdrop_supply_drops.signal_dimension": "Signal deliveries are not allowed in this dimension.",
+  "message.airdrop_supply_drops.signal_unknown_type": "The supply type is missing or unavailable; the tube was not consumed.",
+  "message.airdrop_supply_drops.signal_requested": "Signal fired; requesting %s.",
+  "message.airdrop_supply_drops.signal_given": "Received: %s"
 }

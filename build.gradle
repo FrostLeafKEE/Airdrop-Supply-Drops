@@ -165,8 +165,8 @@ tasks.register('releaseSources', Zip) {
     destinationDirectory = layout.buildDirectory.dir('libs')
     from(projectDir) {
         include 'src/**', 'gradle/**', 'gradlew', 'gradlew.bat', 'build.gradle', 'settings.gradle', 'gradle.properties'
-        include 'LICENSE', 'README.md', 'INTEGRATION.md', 'ID-MIGRATION.md', '.gitignore', '.gitattributes'
-        include 'example_datapack/**', 'art/**', 'audio/**'
+        include 'LICENSE', 'README.md', 'INTEGRATION.md', 'ID-MIGRATION.md', 'PARACHUTE-PBR.md', 'SIGNAL-TUBE.md', '.gitignore', '.gitattributes'
+        include 'example_datapack/**', 'example_resourcepack/**', 'art/**', 'audio/**'
     }
 }
 
@@ -189,4 +189,11 @@ publishing {
             url = layout.buildDirectory.dir('repo')
         }
     }
+}
+
+tasks.register('releaseExampleResourcepack', Zip) {
+    archiveFileName = "${mod_id}-example-resourcepack.zip"
+    destinationDirectory = layout.buildDirectory.dir('libs')
+    from('example_resourcepack') { exclude 'README.md' }
+    from('PARACHUTE-PBR.md')
 }

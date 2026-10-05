@@ -1,0 +1,246 @@
+{
+  "format": "lab-pbr/1.3",
+  "emission": 0,
+  "textures": {
+    "block/crate_food.png": {
+      "material": "painted_iron",
+      "roughness": 0.68,
+      "relief": 0.025,
+      "porosity_or_sss": 0,
+      "size": [
+        64,
+        64
+      ],
+      "albedo_sha256": "3170ea669fb09f5799fd54206fa2553140b1f90cbfc7a0bf1840c1a2bcd9ce1f",
+      "maps_sha256": {
+        "_n": "71f440d47f0765b1f87a4aa787e533f1969a2a40f5fce692168a164f017817c3",
+        "_s": "61735540cf96005480f917eccdf0b5fb1a28bf6ee235c56b85f723aa400cfc4c"
+      }
+    },
+    "block/crate_latch.png": {
+      "material": "iron",
+      "roughness": 0.28,
+      "relief": 0.045,
+      "porosity_or_sss": 0,
+      "size": [
+        64,
+        64
+      ],
+      "albedo_sha256": "4ac3620cd3829ed39bd81eac1668f44480bf1335c82c06fc03ac56d1c5114cc2",
+      "maps_sha256": {
+        "_n": "520f6df805f826dc4013ae1cb65d3f2972ea054d8b52018ec31b93ff375e2871",
+        "_s": "baeba287e7254c875479017d936a11ab5e44452fd07359f25c12a9f129dc6611"
+      }
+    },
+    "block/crate_lid.png": {
+      "material": "wood",
+      "roughness": 0.82,
+      "relief": 0.07,
+      "porosity_or_sss": 18,
+      "size": [
+        64,
+        64
+      ],
+      "albedo_sha256": "3a06dd7a8ea8cf2f9f76eeb63dcf179787c880b99a34847e49aa045fcfc5fb31",
+      "maps_sha256": {
+        "_n": "3b1df84ed2179feb0cccaf25693a7645fb01f974770cabee937dccadbc3086bb",
+        "_s": "a98ab7a6ee0b27bb1e2b94664e09cb485ecc54507dc635a3a2209a877603ab41"
+      }
+    },
+    "block/crate_metal.png": {
+      "material": "painted_iron",
+      "roughness": 0.48,
+      "relief": 0.045,
+      "porosity_or_sss": 0,
+      "size": [
+        64,
+        64
+      ],
+      "albedo_sha256": "04a4c634a3afc9a6e88cd79b6fbffd27f0d960cd6e83e5e5a2b65a8747ffee28",
+      "maps_sha256": {
+        "_n": "b2a2be677716915df3736594afe55f04917ade1bfa669b3b5e4edb50ed76b623",
+        "_s": "bcf3aeb328df7e9ca23f74b0b1401c8f0312472f47e0e07d7ad751c28204da06"
+      }
+    },
+    "block/crate_mineral.png": {
+      "material": "painted_iron",
+      "roughness": 0.68,
+      "relief": 0.025,
+      "porosity_or_sss": 0,
+      "size": [
+        64,
+        64
+      ],
+      "albedo_sha256": "6f36740d6ce5ec7b835f6c0eedde2e36d1b025c32e4e1aef7e30cc2ba07e3c0f",
+      "maps_sha256": {
+        "_n": "05286ac9c9e3b78df9037d2928f9bf416ec504fffe8cac20f9d35c8de78bec3c",
+        "_s": "769a12ac69584c7d23d9ffee037caa4ce7fc33cccc98758701914b8ad6000302"
+      }
+    },
+    "block/crate_wood.png": {
+      "material": "wood",
+      "roughness": 0.82,
+      "relief": 0.09,
+      "porosity_or_sss": 18,
+      "size": [
+        64,
+        64
+      ],
+      "albedo_sha256": "e92754ddc99ea9407e6a8982a613d4df31aa499ff91496d2f1beb1ec1c5b1789",
+      "maps_sha256": {
+        "_n": "606aacd3308279398c9f64a17595418fa1708b1b291f934d45d34b16f3d70998",
+        "_s": "f021703a86f3813bc5d2177f5e14114751751dd1267795eba98239c6308c75c1"
+      }
+    },
+    "entity/aircraft_body.png": {
+      "material": "painted_iron",
+      "roughness": 0.65,
+      "relief": 0.035,
+      "porosity_or_sss": 0,
+      "size": [
+        128,
+        128
+      ],
+      "albedo_sha256": "e2d75425e40ea64517684b06940f9da8669c954e4c7a9b6c8145dcb993449b5a",
+      "maps_sha256": {
+        "_n": "ff320ff86fe88300ae3250f7109e61cd839310253678150f340c0f919e00886e",
+        "_s": "9ca85d7f7d1ef4b09ae9fc1a0b7824a51344d27e7622cd30fcb48462c88cfe9e"
+      }
+    },
+    "entity/aircraft_frame.png": {
+      "material": "painted_iron",
+      "roughness": 0.55,
+      "relief": 0.035,
+      "porosity_or_sss": 0,
+      "size": [
+        64,
+        64
+      ],
+      "albedo_sha256": "78ee47c4f0e1aaaccc4f62a2382897bdc60819ef7a72e1162a03a1d040f5c95f",
+      "maps_sha256": {
+        "_n": "da5840738eac3ea0258803d29b9820b355d7d2eb1e9d884cd522d10651330df3",
+        "_s": "0c06d6876d09b49f098810961f49e01d01533217511a41dabbce4708c84841d9"
+      }
+    },
+    "entity/aircraft_glass.png": {
+      "material": "glass",
+      "roughness": 0.08,
+      "relief": 0.003,
+      "porosity_or_sss": 0,
+      "size": [
+        128,
+        128
+      ],
+      "albedo_sha256": "01bed935050cb67ba08ccf4add9137a695c9e9e08270c3f07e36fe96e3e24896",
+      "maps_sha256": {
+        "_n": "1abc18f7aa0cac6e2306f6598c470ab6c1894a00e17f51ea726dabfdbed73141",
+        "_s": "567563b07071e8d9abe2940c45f45eb15eea18eac71b721e7ba0ffb78a52eb0b"
+      }
+    },
+    "entity/aircraft_rubber.png": {
+      "material": "rubber",
+      "roughness": 0.95,
+      "relief": 0.025,
+      "porosity_or_sss": 4,
+      "size": [
+        64,
+        64
+      ],
+      "albedo_sha256": "6ee7cd9b3010a891bca18b856617cfc27a8848b6ca10fc36dea5a70ec9c3251c",
+      "maps_sha256": {
+        "_n": "2dfe0d740fda4b4e85cdb52de8e7f15408640dc106153eca75f43be34080e83b",
+        "_s": "d2d93b0b2a3e2483bec09c9b676c61fe7e5a0d47f92984bf3e1d07a0ac970a63"
+      }
+    },
+    "entity/canopy_ivory.png": {
+      "material": "cloth",
+      "roughness": 0.9,
+      "relief": 0.018,
+      "porosity_or_sss": 105,
+      "size": [
+        64,
+        64
+      ],
+      "albedo_sha256": "2c87cc827e7e6e8d2c7b214a185656a33a87028b4dec9be4e2c8f69da08c5862",
+      "maps_sha256": {
+        "_n": "04b9f5ad6ba4987260d5960554e4403fa0ba18d357dc33a905634c62f2476881",
+        "_s": "8f5c702d7bc8b55cd8995423986d9a8183b517ff75725216562e5ac768748faa"
+      }
+    },
+    "entity/canopy_red.png": {
+      "material": "cloth",
+      "roughness": 0.9,
+      "relief": 0.018,
+      "porosity_or_sss": 105,
+      "size": [
+        64,
+        64
+      ],
+      "albedo_sha256": "c886a42997ae54de39f20fe5dfef80e94fd9b0a3ebe592ececbfa1e6b0c7f438",
+      "maps_sha256": {
+        "_n": "a816960d83043b8f60e6b0570ead6c7a7a5ffdfeb31b5229f7c670a0e0610556",
+        "_s": "1dc30b686457c962c05f9d3c4ff8c4c2ff0d997f544958fcc3e60a96a824ff3b"
+      }
+    },
+    "item/signal_body.png": {
+      "material": "painted_iron",
+      "roughness": 0.68,
+      "relief": 0.028,
+      "porosity_or_sss": 0,
+      "size": [
+        128,
+        128
+      ],
+      "albedo_sha256": "a706c217caef943d418c0e51c103b32b3faa62860655989861e777b035ffb76e",
+      "maps_sha256": {
+        "_n": "161fddcc02ab2834f725077aea7e9b4cb41567a1747b6597eecdc1d4deb72c48",
+        "_s": "724bcfd356cf1a2add81d0c740b983668dc786fa56bcd2b360557b3469fd6c76"
+      }
+    },
+    "item/signal_dark.png": {
+      "material": "rubber",
+      "roughness": 0.98,
+      "relief": 0.015,
+      "porosity_or_sss": 0,
+      "size": [
+        64,
+        64
+      ],
+      "albedo_sha256": "30131f588a6c168c2520520a436c5ca21e6594ab55c3071395d67e8f1446238c",
+      "maps_sha256": {
+        "_n": "9f5e04d1c2a1671e44286dc30b3e125979c5e1c182ae740536c297453b5d6eb9",
+        "_s": "ad4499b2ff458fad860cefc4235e7cd2a5c454c5af3ce54ccb2b0a2b36a9d965"
+      }
+    },
+    "item/signal_label.png": {
+      "material": "painted_iron",
+      "roughness": 0.68,
+      "relief": 0.028,
+      "porosity_or_sss": 0,
+      "size": [
+        128,
+        128
+      ],
+      "albedo_sha256": "0326ea09bb9474dabbc96eeb9917c2e2f8589e6c3844347f4c8418ef069a987e",
+      "maps_sha256": {
+        "_n": "60f47d1f47365103ba89f81dbd3442e45c5c7922a8b9c980fb58867345f1356e",
+        "_s": "4fc9787ea5a24dd0e5975deda3308d94e31480367466a5adc3a8722447696b0b"
+      }
+    },
+    "item/signal_metal.png": {
+      "material": "iron",
+      "roughness": 0.4,
+      "relief": 0.022,
+      "porosity_or_sss": 0,
+      "size": [
+        64,
+        64
+      ],
+      "albedo_sha256": "e61b821d56c082f9df21c4002dbdd11a6d4e3b91ee122a23956ccc6d569b38e5",
+      "maps_sha256": {
+        "_n": "ef7250c77b93dde8b3c1441e8ddbc1f72c0ab9f6a699ac9742ac9ce4b36e1472",
+        "_s": "56ac30664a794ac05665bbcc14630c8336e3e203f2d782e1158268a7d6a1f123"
+      }
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "sources": [
+    {"type": "single", "resource": "airdrop_supply_drops:entity/canopy_ivory"},
+    {"type": "single", "resource": "airdrop_supply_drops:entity/canopy_red"}
+  ]
+}

@@ -14,6 +14,16 @@ public final class ClientModEvents {
     }
 
     @SubscribeEvent
+    public static void onAdditionalModels(net.minecraftforge.client.event.ModelEvent.RegisterAdditional event) {
+        event.register(ParachuteResources.CANOPY);
+    }
+
+    @SubscribeEvent
+    public static void onReloadListeners(net.minecraftforge.client.event.RegisterClientReloadListenersEvent event) {
+        event.registerReloadListener(ParachuteResources.INSTANCE);
+    }
+
+    @SubscribeEvent
     public static void onParticles(net.minecraftforge.client.event.RegisterParticleProvidersEvent event) {
         event.registerSpriteSet(com.prtsnote.airdrop.registry.ModParticles.RED_SMOKE.get(), sprites ->
                 (options, level, x, y, z, dx, dy, dz) -> new RedSmokeParticle(level, x, y, z, sprites, options));
@@ -21,8 +31,21 @@ public final class ClientModEvents {
 
     @SubscribeEvent
     public static void onRenderers(net.minecraftforge.client.event.EntityRenderersEvent.RegisterRenderers event) {
+        event.registerEntityRenderer(com.prtsnote.airdrop.registry.ModEntities.SIGNAL_FLARE.get(),
+                context -> new net.minecraft.client.renderer.entity.ThrownItemRenderer<>(context, .55F, true));
         event.registerEntityRenderer(com.prtsnote.airdrop.registry.ModEntities.FALLING_AIRDROP.get(), FallingAirdropRenderer::new);
         event.registerEntityRenderer(com.prtsnote.airdrop.registry.ModEntities.PLANE.get(), AirdropPlaneRenderer::new);
+    }
+
+    @SubscribeEvent
+    public static void onCreativeTabs(net.minecraftforge.event.BuildCreativeModeTabContentsEvent event) {
+        if (event.getTabKey() != net.minecraft.world.item.CreativeModeTabs.TOOLS_AND_UTILITIES) return;
+        event.accept(com.prtsnote.airdrop.world.item.SignalTubeItem.randomStack());
+        for (String type : new String[]{"mineral", "food"}) {
+            event.accept(com.prtsnote.airdrop.world.item.SignalTubeItem.boundStack(
+                    new net.minecraft.resources.ResourceLocation("airdrop_supply_drops", type),
+                    net.minecraft.network.chat.Component.translatable("airdrop_supply_drops.type." + type)));
+        }
     }
 
     @SubscribeEvent
