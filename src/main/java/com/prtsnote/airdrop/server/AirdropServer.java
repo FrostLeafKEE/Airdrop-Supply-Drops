@@ -195,11 +195,12 @@ public final class AirdropServer {
         LootTable table = com.prtsnote.airdrop.data.AirdropValidation.lootTable(level.getServer(), type.lootTable());
         if (table == LootTable.EMPTY) return false;
         if (!level.setBlock(pos, ModBlocks.AIRDROP_CRATE.get().defaultBlockState()
-                .setValue(com.prtsnote.airdrop.world.block.AirdropCrateBlock.FOOD, type.appearance().equals("food")), 3)) return false;
+                .setValue(com.prtsnote.airdrop.world.block.AirdropCrateBlock.FOOD, type.appearance().equals(com.prtsnote.airdrop.data.AirdropAppearance.FOOD)), 3)) return false;
         if (!(level.getBlockEntity(pos) instanceof AirdropCrateBlockEntity crate)) return false;
         table.fill(crate, new LootParams.Builder(level)
                 .withParameter(LootContextParams.ORIGIN, Vec3.atCenterOf(pos))
                 .create(LootContextParamSets.CHEST), level.random.nextLong());
+        crate.setAppearance(type.appearance());
         crate.initialize(type.name(), settings);
         return true;
     }

@@ -1,5 +1,9 @@
 # Parachute models and PBR materials
 
+## Independent appearances (1.0.14+)
+
+Each supply type can now select a namespaced `appearance` ID that resolves a crate model, canopy model and suspension rig. See [MODEL-APPEARANCES.md](MODEL-APPEARANCES.md) for the per-appearance contract. The paths below still replace the shared defaults.
+
 ## Replace the parachute
 
 Since 1.0.12, a client resource pack can replace both the canopy geometry and suspension rig without changing server gameplay. Open `art/source/parachute_canopy.bbmodel` in Blockbench using the Java Block/Item format. It contains embedded cloth textures. Export a Java model to:

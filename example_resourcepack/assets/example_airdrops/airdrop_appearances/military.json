@@ -1,0 +1,7 @@
+{
+  "format": 1,
+  "crate_model": "example_airdrops:block/military_crate",
+  "parachute_model": "example_airdrops:entity/military_canopy",
+  "parachute_rig": "example_airdrops:parachute/military_rig.json",
+  "fallback": "mineral"
+}

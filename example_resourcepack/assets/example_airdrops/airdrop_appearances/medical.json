@@ -1,0 +1,7 @@
+{
+  "format": 1,
+  "crate_model": "example_airdrops:block/medical_crate",
+  "parachute_model": "example_airdrops:entity/medical_canopy",
+  "parachute_rig": "example_airdrops:parachute/medical_rig.json",
+  "fallback": "food"
+}

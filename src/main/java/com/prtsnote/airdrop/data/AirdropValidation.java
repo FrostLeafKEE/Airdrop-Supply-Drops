@@ -33,9 +33,7 @@ public final class AirdropValidation {
     public static void validateDimensions(MinecraftServer server, java.util.List<? extends String> rules, String path) {
         for (String rule : rules) {
             if (rule.startsWith("#")) {
-                var tag = TagKey.create(Registries.LEVEL_STEM, ResourceLocation.parse(rule.substring(1)));
-                if (server.registryAccess().registryOrThrow(Registries.LEVEL_STEM).getTag(tag)
-                        .map(values -> values.size() == 0).orElse(true)) {
+                if (!AirdropDimensionTags.exists(server, ResourceLocation.parse(rule.substring(1)))) {
                     throw new IllegalArgumentException(path + ": missing or empty dimension tag " + rule);
                 }
             } else if (server.getLevel(ResourceKey.create(Registries.DIMENSION, ResourceLocation.parse(rule))) == null) {

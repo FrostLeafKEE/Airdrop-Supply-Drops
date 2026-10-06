@@ -67,6 +67,7 @@ public final class AirdropDimensionGameTests {
         var groupFile = tagDir.resolve("allowed_dimensions.json");
         var nestedFile = tagDir.resolve("dimension_bundle.json");
         var emptyFile = tagDir.resolve("empty_dimensions.json");
+        var brokenFile = tagDir.resolve("broken_dimensions.json");
         var invalidFile = typeDir.resolve("_invalid_dimension_probe.json");
         Files.copy(pack.getParent().resolve("airdrop_example/pack.mcmeta"), pack.resolve("pack.mcmeta"));
         Files.writeString(groupFile, """
@@ -74,6 +75,7 @@ public final class AirdropDimensionGameTests {
                 """);
         Files.writeString(nestedFile, "{\"values\":[\"#example_airdrops:allowed_dimensions\"]}");
         Files.writeString(emptyFile, "{\"values\":[]}");
+        Files.writeString(brokenFile, "{\"values\":[\"minecraft:overworld\",\"missing:required_dimension\"]}");
         Files.writeString(invalidFile, """
                 {"schema_version":1,"display_name":{"text":"Invalid dimension probe"},"weight":1,
                  "loot_table":"airdrop_supply_drops:airdrop/food","appearance":"food",
@@ -97,6 +99,10 @@ public final class AirdropDimensionGameTests {
                     && error.contains("#missing:dimension_probe")), "Invalid dimension-tag references must exclude the type and identify its file");
             rejects(helper, () -> AirdropValidation.validateDimensions(server, List.of("#example_airdrops:empty_dimensions"), "conditions.dimensions"),
                     "missing or empty dimension tag");
+            rejects(helper, () -> AirdropValidation.validateDimensions(server, List.of("#example_airdrops:broken_dimensions"), "conditions.dimensions"),
+                    "missing or empty dimension tag");
+            helper.assertTrue(!AirdropRules.matchesDimension(overworld, "#example_airdrops:broken_dimensions"),
+                    "A tag with a missing required ID must fail entirely, even when another member is valid");
             AirdropConfig.ALLOWED_DIMENSIONS.set(List.of("#missing:whitelist_probe"));
             helper.assertTrue(AirdropTypes.validate(server).stream().anyMatch(error -> error.contains("serverconfig/")
                     && error.contains("allowed_dimensions") && error.contains("#missing:whitelist_probe")),
@@ -118,7 +124,7 @@ public final class AirdropDimensionGameTests {
         }, server).handleAsync((unused, error) -> {
             AirdropConfig.ALLOWED_DIMENSIONS.set(previousDimensions);
             try {
-                for (var file : List.of(groupFile, nestedFile, emptyFile, invalidFile, pack.resolve("pack.mcmeta"))) Files.deleteIfExists(file);
+                for (var file : List.of(groupFile, nestedFile, emptyFile, brokenFile, invalidFile, pack.resolve("pack.mcmeta"))) Files.deleteIfExists(file);
                 for (var directory : List.of(tagDir, tagDir.getParent(), typeDir, typeDir.getParent(), pack.resolve("data"), pack)) Files.deleteIfExists(directory);
             } catch (IOException cleanup) { throw new java.io.UncheckedIOException(cleanup); }
             server.getPackRepository().reload();

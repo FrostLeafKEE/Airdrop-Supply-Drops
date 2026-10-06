@@ -1,0 +1,60 @@
+{
+  "format": 1,
+  "open_width": 2.8,
+  "closed_width": 0.35,
+  "open_height": 3,
+  "closed_height": 1.15,
+  "closed_vertical_scale": 0.23,
+  "cord_width": 0.036,
+  "cord_texture": "airdrop_supply_drops:textures/entity/canopy_ivory.png",
+  "cords": [
+    {
+      "crate": [
+        -0.42,
+        1,
+        -0.42
+      ],
+      "canopy": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "crate": [
+        -0.42,
+        1,
+        0.42
+      ],
+      "canopy": [
+        0,
+        0,
+        16
+      ]
+    },
+    {
+      "crate": [
+        0.42,
+        1,
+        -0.42
+      ],
+      "canopy": [
+        16,
+        0,
+        0
+      ]
+    },
+    {
+      "crate": [
+        0.42,
+        1,
+        0.42
+      ],
+      "canopy": [
+        16,
+        0,
+        16
+      ]
+    }
+  ]
+}

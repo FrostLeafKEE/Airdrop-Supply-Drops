@@ -53,6 +53,15 @@ minecraft {
         }
 
         client {
+            if (project.hasProperty('dimensionCheck')) {
+                workingDirectory project.file('run-dimensioncheck-1.21.1')
+                property 'airdrop.dimensionCheck', 'true'
+                property 'airdrop.dimensionCheckWorld', project.property('dimensionCheck')
+            }
+            if (project.hasProperty('soundCheck')) {
+                workingDirectory project.file('run-soundcheck-1.21.1')
+                property 'airdrop.soundCheck', 'true'
+            }
             property 'forge.enabledGameTestNamespaces', mod_id
             if (project.hasProperty('heldPreview')) {
                 workingDirectory project.file('run-clientcheck-1.21.1')
@@ -177,8 +186,8 @@ tasks.register('releaseSources', Zip) {
     destinationDirectory = layout.buildDirectory.dir('libs')
     from(projectDir) {
         include 'src/**', 'gradle/**', 'gradlew', 'gradlew.bat', 'build.gradle', 'settings.gradle', 'gradle.properties'
-        include 'LICENSE', 'README.md', 'INTEGRATION.md', 'ID-MIGRATION.md', 'PARACHUTE-PBR.md', 'SIGNAL-TUBE.md', '.gitignore', '.gitattributes'
-        include 'example_datapack/**', 'example_resourcepack/**', 'art/**', 'audio/**'
+        include 'LICENSE', 'README.md', 'INTEGRATION.md', 'ID-MIGRATION.md', 'PARACHUTE-PBR.md', 'SIGNAL-TUBE.md', 'MODEL-APPEARANCES.md', '.gitignore', '.gitattributes'
+        include 'example_datapack/**', 'example_resourcepack/**', 'example_appearance_resourcepack/**', 'art/**', 'audio/**'
     }
 }
 
@@ -194,6 +203,13 @@ tasks.register('releaseExampleResourcepack', Zip) {
     destinationDirectory = layout.buildDirectory.dir('libs')
     from('example_resourcepack') { exclude 'README.md' }
     from('PARACHUTE-PBR.md')
+}
+
+tasks.register('releaseExampleAppearanceResourcepack', Zip) {
+    archiveFileName = "${mod_id}-example-appearances.zip"
+    destinationDirectory = layout.buildDirectory.dir('libs')
+    from('example_appearance_resourcepack') { exclude 'README.md' }
+    from('MODEL-APPEARANCES.md')
 }
 
 publishing {

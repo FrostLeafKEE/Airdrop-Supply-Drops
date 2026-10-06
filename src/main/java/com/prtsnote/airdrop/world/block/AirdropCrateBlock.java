@@ -54,7 +54,7 @@ public final class AirdropCrateBlock extends BaseEntityBlock {
     public <T extends BlockEntity> BlockEntityTicker<T> getTicker(
             Level level, BlockState state, BlockEntityType<T> blockEntityType) {
         return level.isClientSide
-                ? null
+                ? createTickerHelper(blockEntityType, ModBlockEntities.AIRDROP_CRATE.get(), AirdropCrateBlockEntity::clientTick)
                 : createTickerHelper(blockEntityType, ModBlockEntities.AIRDROP_CRATE.get(), AirdropCrateBlockEntity::serverTick);
     }
 
