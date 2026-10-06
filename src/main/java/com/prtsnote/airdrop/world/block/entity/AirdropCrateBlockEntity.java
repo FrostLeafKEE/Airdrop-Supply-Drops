@@ -26,6 +26,48 @@ public final class AirdropCrateBlockEntity extends BlockEntity implements net.mi
     public static final int SMOKE_DURATION_TICKS = 5 * 60 * 20;
     private final NonNullList<ItemStack> items = NonNullList.withSize(INVENTORY_SIZE, ItemStack.EMPTY);
     private long smokeEndsAt = -1;
+    private boolean lastSmokeActive;
+    private boolean clientSmokeActive;
+
+    public boolean isClientSmoking() { return clientSmokeActive; }
+
+    public static void clientTick(Level level, BlockPos pos, BlockState state, AirdropCrateBlockEntity crate) {
+        com.prtsnote.airdrop.client.ClientSoundEvents.tickCrate(crate);
+    }
+    private volatile net.minecraft.resources.ResourceLocation appearance;
+    public net.minecraft.resources.ResourceLocation appearance() { return appearance; }
+    public void setAppearance(net.minecraft.resources.ResourceLocation id) {
+        appearance = java.util.Objects.requireNonNull(id);
+        setChanged();
+        if (level != null) {
+            requestModelDataUpdate();
+            level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
+        }
+    }
+
+    @Override public net.minecraftforge.client.model.data.ModelData getModelData() {
+        return net.minecraftforge.client.model.data.ModelData.builder()
+                .with(com.prtsnote.airdrop.data.AirdropAppearance.MODEL_PROPERTY, appearance).build();
+    }
+
+    @Override public CompoundTag getUpdateTag() {
+        var tag = new CompoundTag();
+        tag.putString("appearance", appearance.toString());
+        tag.putBoolean("smoking", emitsSmoke());
+        return tag;
+    }
+    @Override public net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket getUpdatePacket() {
+        return net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket.create(this);
+    }
+    @Override public void handleUpdateTag(CompoundTag tag) {
+        clientSmokeActive = tag.getBoolean("smoking");
+        setAppearance(com.prtsnote.airdrop.data.AirdropAppearance.saved(tag.getString("appearance"),
+                getBlockState().getValue(com.prtsnote.airdrop.world.block.AirdropCrateBlock.FOOD)));
+    }
+    @Override public void onDataPacket(net.minecraft.network.Connection connection,
+            net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket packet) {
+        if (packet.getTag() != null) handleUpdateTag(packet.getTag());
+    }
     private AirdropRules.Settings settings;
     private UUID eventId;
     public UUID eventId() { return eventId; }
@@ -34,6 +76,8 @@ public final class AirdropCrateBlockEntity extends BlockEntity implements net.mi
 
     public AirdropCrateBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.AIRDROP_CRATE.get(), pos, state);
+        appearance = state.getValue(com.prtsnote.airdrop.world.block.AirdropCrateBlock.FOOD)
+                ? com.prtsnote.airdrop.data.AirdropAppearance.FOOD : com.prtsnote.airdrop.data.AirdropAppearance.MINERAL;
     }
 
     public static void serverTick(Level level, BlockPos pos, BlockState state, AirdropCrateBlockEntity crate) {
@@ -42,7 +86,13 @@ public final class AirdropCrateBlockEntity extends BlockEntity implements net.mi
             crate.setChanged();
         }
         // Crate persistence and smoke lifetime are independent.
-        if (!crate.emitsSmoke()) return;
+        boolean smoking = crate.emitsSmoke();
+        if (smoking != crate.lastSmokeActive) {
+            crate.lastSmokeActive = smoking;
+            // Send only transitions; the client never needs the crate inventory or deadline.
+            level.sendBlockUpdated(pos, state, state, 2);
+        }
+        if (!smoking) return;
         if (level instanceof net.minecraft.server.level.ServerLevel serverLevel && level.getGameTime() % 4 == 0) {
             com.prtsnote.airdrop.server.AirdropSmoke.emit(serverLevel, pos.getX() + 0.5, pos.getY() + 1.1, pos.getZ() + 0.5, false);
         }
@@ -84,6 +134,7 @@ public final class AirdropCrateBlockEntity extends BlockEntity implements net.mi
         super.saveAdditional(tag);
         ContainerHelper.saveAllItems(tag, items);
         tag.putLong("smoke_ends_at", smokeEndsAt);
+        tag.putString("appearance", appearance.toString());
         if (settings != null) tag.put("airdrop_settings", settings.save());
         if (eventId != null) tag.putUUID("event_id", eventId);
         tag.putString("display_name", Component.Serializer.toJson(displayName));
@@ -92,6 +143,9 @@ public final class AirdropCrateBlockEntity extends BlockEntity implements net.mi
     @Override
     public void load(CompoundTag tag) {
         super.load(tag);
+        appearance = com.prtsnote.airdrop.data.AirdropAppearance.saved(tag.getString("appearance"),
+                getBlockState().getValue(com.prtsnote.airdrop.world.block.AirdropCrateBlock.FOOD));
+        requestModelDataUpdate();
         items.clear();
         ContainerHelper.loadAllItems(tag, items);
         smokeEndsAt = tag.contains("smoke_ends_at") ? tag.getLong("smoke_ends_at") : -1;

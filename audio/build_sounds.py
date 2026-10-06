@@ -2,6 +2,7 @@
 from pathlib import Path
 import sys
 import json
+import argparse
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / '.audio-tools'))
@@ -12,7 +13,12 @@ RATE = 44100
 rng = np.random.default_rng(20260911)
 OUT = ROOT / 'src/main/resources/assets/airdrop_supply_drops/sounds'
 OUT.mkdir(parents=True, exist_ok=True)
-report = {}
+parser = argparse.ArgumentParser()
+parser.add_argument('--only', nargs='+', help='Rebuild only these sound event names')
+args = parser.parse_args()
+selected = set(args.only) if args.only else None
+report_path = ROOT / 'audio/validation.json'
+report = json.loads(report_path.read_text(encoding='utf8')) if selected and report_path.exists() else {}
 
 def noise(seconds, low, high):
     n = round(seconds * RATE)
@@ -23,6 +29,8 @@ def noise(seconds, low, high):
     return value / max(np.std(value), 1e-8)
 
 def save(name, value, peak, loop=False):
+    if selected is not None and name not in selected:
+        return
     value -= value.mean()
     if not loop:
         fade = min(220, len(value) // 10)
@@ -45,15 +53,16 @@ engine = sum(np.sin(phase * harmonic) / harmonic ** 1.35 for harmonic in range(1
 engine += 0.65 * np.sin(2 * np.pi * 46 * t) + 0.18 * np.sin(2 * np.pi * 720 * t)
 engine += 0.38 * noise(8, 25, 650) * (0.65 + 0.35 * np.cos(phase * 2))
 save('aircraft_engine', engine, 0.78, loop=True)
-wind = noise(8, 90, 2200) * (0.7 + 0.14 * np.sin(2 * np.pi * 0.25 * t) + 0.07 * np.sin(2 * np.pi * 0.875 * t))
-wind += 0.12 * noise(8, 400, 4500) * (0.5 + 0.5 * np.sin(2 * np.pi * 3 * t))
-save('descent_wind', wind, 0.5, loop=True)
+# Low broad gusts and gentle fabric flutter, without the high-frequency smoke hiss.
+wind = noise(8, 65, 650) * (.64 + .23 * np.sin(2 * np.pi * .25 * t) + .07 * np.sin(2 * np.pi * .875 * t))
+wind += .16 * noise(8, 180, 1400) * (.55 + .45 * np.sin(2 * np.pi * 5 * t))
+save('descent_wind', wind, .5, loop=True)
 t = np.arange(round(1.5 * RATE)) / RATE
-fabric = noise(1.5, 180, 4200)
-deploy = fabric * (0.35 * np.exp(-((t - 0.2) / 0.13) ** 2) + 0.7 * np.exp(-((t - 0.48) / 0.09) ** 2))
-deploy += 0.9 * np.sin(2 * np.pi * (95 * t - 15 * t * t)) * np.exp(-np.maximum(t - 0.43, 0) * 12) * (t >= 0.43)
-deploy += 0.15 * fabric * np.exp(-np.maximum(t - 0.6, 0) * 3) * (t >= 0.6) * (0.5 + 0.5 * np.sin(2 * np.pi * 14 * t))
-save('parachute_open', deploy, 0.8)
+fabric = noise(1.5, 70, 950)
+deploy = fabric * (.35 * np.exp(-((t - .2) / .14) ** 2) + .65 * np.exp(-((t - .48) / .16) ** 2))
+deploy += .5 * np.sin(2 * np.pi * (80 * t - 12 * t * t)) * np.exp(-np.maximum(t - .43, 0) * 12) * (t >= .43)
+deploy += .12 * fabric * np.exp(-np.maximum(t - .65, 0) * 3) * (t >= .65) * (.5 + .5 * np.sin(2 * np.pi * 9 * t))
+save('parachute_open', deploy, .7)
 t = np.arange(RATE) / RATE
 impact = (np.sin(2 * np.pi * 78 * t) + 0.45 * np.sin(2 * np.pi * 167 * t)) * np.exp(-18 * t)
 impact += 0.65 * noise(1, 250, 3800) * np.exp(-45 * t)
@@ -62,5 +71,9 @@ save('crate_land', impact, 0.85)
 t = np.arange(round(0.65 * RATE)) / RATE
 flare = noise(0.65, 140, 5000) * np.exp(-10 * t) + 0.3 * np.sin(2 * np.pi * 120 * t) * np.exp(-35 * t)
 save('flare_launch', flare, 0.7)
-(ROOT / 'audio/validation.json').write_text(json.dumps(report, indent=2) + '\n', encoding='utf8')
+t = np.arange(8 * RATE) / RATE
+# A separate soft, high-band smoke loop; it is never attached to descending cargo.
+hiss = noise(8, 1200, 6000) * (.75 + .08 * np.sin(2 * np.pi * .375 * t) + .05 * np.sin(2 * np.pi * 1.5 * t))
+save('smoke_hiss', hiss, .42, loop=True)
+report_path.write_text(json.dumps(report, indent=2) + '\n', encoding='utf8')
 print(json.dumps(report, indent=2))

@@ -15,12 +15,18 @@ public final class ClientModEvents {
 
     @SubscribeEvent
     public static void onAdditionalModels(net.minecraftforge.client.event.ModelEvent.RegisterAdditional event) {
-        event.register(ParachuteResources.CANOPY);
+        AirdropAppearanceResources.registerModels(event);
+    }
+
+    @SubscribeEvent
+    public static void onBakedModels(net.minecraftforge.client.event.ModelEvent.ModifyBakingResult event) {
+        AirdropCrateModel.wrap(event);
     }
 
     @SubscribeEvent
     public static void onReloadListeners(net.minecraftforge.client.event.RegisterClientReloadListenersEvent event) {
         event.registerReloadListener(ParachuteResources.INSTANCE);
+        event.registerReloadListener(AirdropAppearanceResources.INSTANCE);
     }
 
     @SubscribeEvent

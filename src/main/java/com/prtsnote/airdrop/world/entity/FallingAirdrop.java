@@ -39,7 +39,11 @@ public final class FallingAirdrop extends Entity {
     @Override public boolean shouldRenderAtSqrDistance(double distance) { return distance < 256 * 256; }
     private static final EntityDataAccessor<Boolean> FOOD = SynchedEntityData.defineId(FallingAirdrop.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Integer> DEPLOYMENT = SynchedEntityData.defineId(FallingAirdrop.class, EntityDataSerializers.INT);
-    public boolean isFood() { return entityData.get(FOOD); }
+    private static final EntityDataAccessor<String> APPEARANCE = SynchedEntityData.defineId(FallingAirdrop.class, EntityDataSerializers.STRING);
+    public net.minecraft.resources.ResourceLocation appearance() {
+        return com.prtsnote.airdrop.data.AirdropAppearance.saved(entityData.get(APPEARANCE), entityData.get(FOOD));
+    }
+    public boolean isFood() { return appearance().equals(com.prtsnote.airdrop.data.AirdropAppearance.FOOD); }
     public int deploymentTicks() { return entityData.get(DEPLOYMENT); }
     private static final TicketType<java.util.UUID> TICKET = TicketType.create("airdrop_descent", java.util.UUID::compareTo);
     private final NonNullList<ItemStack> contents = NonNullList.withSize(27, ItemStack.EMPTY);
@@ -75,7 +79,8 @@ public final class FallingAirdrop extends Entity {
         for (int i = 0; i < 27; i++) contents.set(i, inventory.getItem(i).copy());
         title = type.name().copy();
         settings = type.settings().resolve();
-        entityData.set(FOOD, type.appearance().equals("food"));
+        entityData.set(FOOD, type.appearance().equals(com.prtsnote.airdrop.data.AirdropAppearance.FOOD));
+        entityData.set(APPEARANCE, type.appearance().toString());
         expiresAt = level.getServer().overworld().getGameTime() + 12000;
         return true;
     }
@@ -83,6 +88,7 @@ public final class FallingAirdrop extends Entity {
     @Override protected void defineSynchedData() {
         entityData.define(FOOD, false);
         entityData.define(DEPLOYMENT, 0);
+        entityData.define(APPEARANCE, com.prtsnote.airdrop.data.AirdropAppearance.MINERAL.toString());
     }
 
     @Override
@@ -153,6 +159,7 @@ public final class FallingAirdrop extends Entity {
                 && level.setBlock(pos, ModBlocks.AIRDROP_CRATE.get().defaultBlockState().setValue(AirdropCrateBlock.FOOD, isFood()), 3)
                 && level.getBlockEntity(pos) instanceof AirdropCrateBlockEntity crate) {
             for (int i = 0; i < 27; i++) crate.setItem(i, contents.get(i).copy());
+            crate.setAppearance(appearance());
             crate.initialize(title, settings == null ? com.prtsnote.airdrop.data.AirdropRules.defaults() : settings);
             level.playSound(null, pos, com.prtsnote.airdrop.registry.ModSounds.LANDING.get(),
                     net.minecraft.sounds.SoundSource.BLOCKS, 3F, 1F);
@@ -171,6 +178,7 @@ public final class FallingAirdrop extends Entity {
         tag.putString("title", Component.Serializer.toJson(title));
         tag.putLong("expires_at", expiresAt);
         tag.putBoolean("food", isFood());
+        tag.putString("appearance", appearance().toString());
         tag.putInt("deployment", deploymentTicks());
         if (settings != null) tag.put("airdrop_settings", settings.save());
         if (eventId != null) tag.putUUID("event_id", eventId);
@@ -185,6 +193,8 @@ public final class FallingAirdrop extends Entity {
         expiresAt = tag.getLong("expires_at");
         if (!level().isClientSide) settings = com.prtsnote.airdrop.data.AirdropRules.Settings.load(tag.getCompound("airdrop_settings"));
         entityData.set(FOOD, tag.getBoolean("food"));
+        entityData.set(APPEARANCE, com.prtsnote.airdrop.data.AirdropAppearance.saved(
+                tag.getString("appearance"), tag.getBoolean("food")).toString());
         entityData.set(DEPLOYMENT, Math.max(0, Math.min(30, tag.getInt("deployment"))));
         // Earlier builds saved NoGravity=true; resumed crates now use the capped gravity motion too.
         setNoGravity(false);

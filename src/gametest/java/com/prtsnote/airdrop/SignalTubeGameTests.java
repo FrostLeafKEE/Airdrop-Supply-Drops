@@ -27,12 +27,13 @@ import net.minecraftforge.gametest.GameTestHolder;
 @GameTestHolder("airdrop_supply_drops")
 @net.minecraftforge.gametest.PrefixGameTestTemplate(false)
 public final class SignalTubeGameTests {
+    private static Component lastMessage;
     // The 1.20.1 vanilla helper tries to login a connection without a channel.
     // Test the authoritative item without requiring a network login.
     private static net.minecraft.server.level.ServerPlayer mockPlayer(GameTestHelper h) {
         return new net.minecraft.server.level.ServerPlayer(h.getLevel().getServer(), h.getLevel(),
                 new com.mojang.authlib.GameProfile(java.util.UUID.randomUUID(), "signal-test")) {
-            @Override public void displayClientMessage(Component message, boolean actionBar) {}
+            @Override public void displayClientMessage(Component message, boolean actionBar) { lastMessage = message; }
             @Override public void awardStat(net.minecraft.stats.Stat<?> stat, int amount) {}
             @Override protected net.minecraft.world.item.ItemCooldowns createItemCooldowns() {
                 return new net.minecraft.world.item.ItemCooldowns();
@@ -147,8 +148,14 @@ public final class SignalTubeGameTests {
         int min = AirdropConfig.MIN_DROP_DISTANCE.get(), max = AirdropConfig.MAX_DROP_DISTANCE.get();
         var player = mockPlayer(h);
         player.getAbilities().instabuild = false;
-        player.setPos(h.absoluteVec(new Vec3(2.5, 2, 2.5)));
-        h.setBlock(new BlockPos(2, 1, 2), Blocks.STONE);
+        var support = h.absolutePos(new BlockPos(2, 1, 2));
+        player.setPos(support.getX() + .5, support.getY() + 1, support.getZ() + .5);
+        h.getLevel().setBlockAndUpdate(support, Blocks.STONE.defaultBlockState());
+        // The five-block test template does not clear the full terrain column above it.
+        // A zero-radius landing probe must have one exact, unobstructed surface in a fresh world.
+        for (int y = support.getY() + 1; y < h.getLevel().getMaxBuildHeight(); y++) {
+            h.getLevel().setBlockAndUpdate(new BlockPos(support.getX(), y, support.getZ()), Blocks.AIR.defaultBlockState());
+        }
         var type = AirdropTypes.all().get(new ResourceLocation("airdrop_supply_drops:food"));
         var stack = SignalTubeItem.boundStack(type); stack.setCount(2);
         player.setItemInHand(InteractionHand.MAIN_HAND, stack);
@@ -156,7 +163,7 @@ public final class SignalTubeGameTests {
             // Synchronous isolated batch: make the one test column a valid landing point.
             AirdropConfig.MIN_DROP_DISTANCE.set(0); AirdropConfig.MAX_DROP_DISTANCE.set(0);
             var result = ModItems.SIGNAL_TUBE.get().use(h.getLevel(), player, InteractionHand.MAIN_HAND);
-            h.assertTrue(result.getResult().consumesAction() && stack.getCount() == 1, "Successful shot must consume exactly one tube");
+            h.assertTrue(result.getResult().consumesAction() && stack.getCount() == 1, "Successful shot must consume exactly one tube; message=" + lastMessage);
             h.assertTrue(manager.all().size() == 1, "A shot must request exactly one delivery");
             var cargo = manager.all().iterator().next().cargo;
             h.assertTrue(cargo.toString().contains(type.name().getString()) || cargo.toString().contains("type.food"), "Bound tube must choose the food type");

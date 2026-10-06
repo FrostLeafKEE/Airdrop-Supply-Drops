@@ -9,8 +9,6 @@ import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.resources.ResourceLocation;
-import com.prtsnote.airdrop.registry.ModBlocks;
-import com.prtsnote.airdrop.world.block.AirdropCrateBlock;
 
 public final class FallingAirdropRenderer extends EntityRenderer<FallingAirdrop> {
     private static final ResourceLocation IVORY = TexturedBox.texture("canopy_ivory"), RED = TexturedBox.texture("canopy_red");
@@ -25,7 +23,7 @@ public final class FallingAirdropRenderer extends EntityRenderer<FallingAirdrop>
 
     @Override
     public boolean shouldRender(FallingAirdrop entity, net.minecraft.client.renderer.culling.Frustum frustum, double x, double y, double z) {
-        var rig = ParachuteResources.INSTANCE.rig();
+        var rig = AirdropAppearanceResources.INSTANCE.rig(entity.appearance());
         return entity.shouldRender(x, y, z) && frustum.isVisible(entity.getBoundingBox()
                 .inflate(Math.max(2, rig.openWidth() * 1.6), rig.openHeight() + rig.openWidth() * 2.1,
                         Math.max(2, rig.openWidth() * 1.6)));
@@ -35,24 +33,34 @@ public final class FallingAirdropRenderer extends EntityRenderer<FallingAirdrop>
     public void render(FallingAirdrop entity, float yaw, float partialTick, PoseStack pose, MultiBufferSource buffers, int light) {
         pose.pushPose();
         pose.translate(-0.5, 0, -0.5);
-        blocks.renderSingleBlock(ModBlocks.AIRDROP_CRATE.get().defaultBlockState().setValue(AirdropCrateBlock.FOOD, entity.isFood()),
-                pose, buffers, light, OverlayTexture.NO_OVERLAY);
+        renderCrate(entity.appearance(), pose, buffers, light);
         pose.popPose();
         float opening = net.minecraft.util.Mth.clamp((entity.deploymentTicks() + partialTick - 10) / 20F, 0, 1);
         opening = opening * opening * (3 - 2 * opening);
-        renderParachute(opening, entity.tickCount + partialTick, pose, buffers, light);
+        renderParachute(entity.appearance(), opening, entity.tickCount + partialTick, pose, buffers, light);
         super.render(entity, yaw, partialTick, pose, buffers, light);
     }
 
     /** Uses the current baked model after each resource reload; never caches stale atlas sprites. */
+    public void renderCrate(ResourceLocation appearance, PoseStack pose, MultiBufferSource buffers, int light) {
+        var model = AirdropAppearanceResources.INSTANCE.crate(appearance);
+        var type = net.minecraft.client.renderer.RenderType.entityCutoutNoCull(TextureAtlas.LOCATION_BLOCKS);
+        blocks.getModelRenderer().renderModel(pose.last(), buffers.getBuffer(type), null, model,
+                1, 1, 1, light, OverlayTexture.NO_OVERLAY, net.minecraftforge.client.model.data.ModelData.EMPTY, type);
+    }
+
     public void renderParachute(float opening, float age, PoseStack pose, MultiBufferSource buffers, int light) {
-        var rig = ParachuteResources.INSTANCE.rig();
+        renderParachute(com.prtsnote.airdrop.data.AirdropAppearance.MINERAL, opening, age, pose, buffers, light);
+    }
+
+    public void renderParachute(ResourceLocation appearance, float opening, float age, PoseStack pose, MultiBufferSource buffers, int light) {
+        var rig = AirdropAppearanceResources.INSTANCE.rig(appearance);
         float width = net.minecraft.util.Mth.lerp(opening, rig.closedWidth(), rig.openWidth());
         float height = net.minecraft.util.Mth.lerp(opening, rig.closedHeight(), rig.openHeight());
         float verticalScale = net.minecraft.util.Mth.lerp(opening, rig.closedVerticalScale(), 1);
         float sway = (float) Math.sin(age * 0.07) * 2 * opening;
         var manager = net.minecraft.client.Minecraft.getInstance().getModelManager();
-        var canopy = manager.getModel(ParachuteResources.CANOPY);
+        var canopy = manager.getModel(AirdropAppearanceResources.INSTANCE.canopy(appearance));
         if (canopy != lastCanopy) {
             lastCanopy = canopy;
             usableCanopy = ParachuteResources.isUsableCanopy(canopy);

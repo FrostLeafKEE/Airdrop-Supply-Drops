@@ -99,15 +99,29 @@ public final class AirdropSmokeGameTests {
                 var landedPacket = packets.get(0);
                 helper.assertTrue(landedPacket.getXDist() < 0.1F && landedPacket.getZDist() < 0.1F && landedPacket.getMaxSpeed() == 0,
                         "The server must keep landed smoke close to the crate instead of scattering it sideways");
+                var activeTag = crate.getUpdatePacket().getTag();
+                helper.assertTrue(activeTag.getBoolean("smoking") && activeTag.getAllKeys().size() == 2,
+                        "Clients need the active smoke flag and appearance, without inventory or settings");
                 var saved = crate.saveWithFullMetadata();
                 helper.assertTrue(saved.getLong("smoke_ends_at") == level.getServer().overworld().getGameTime() + 6000,
                         "A newly landed crate must receive a five-minute smoke deadline");
+                helper.assertTrue(!saved.contains("smoking"), "The client sound flag must not become persistent state");
+                crate.clearContent();
+                AirdropCrateBlockEntity.serverTick(level, pos, crate.getBlockState(), crate);
+                helper.assertTrue(!crate.getUpdatePacket().getTag().getBoolean("smoking"),
+                        "Emptying a crate before the deadline must stop the client hiss");
+                crate.load(saved);
+                AirdropCrateBlockEntity.serverTick(level, pos, crate.getBlockState(), crate);
+                helper.assertTrue(crate.getUpdatePacket().getTag().getBoolean("smoking"),
+                        "Restoring supplies before expiry must restore the active smoke flag");
                 saved.putLong("smoke_ends_at", level.getServer().overworld().getGameTime());
                 crate.load(saved);
                 packets.clear();
                 AirdropCrateBlockEntity.serverTick(level,pos,crate.getBlockState(),crate);
                 helper.assertTrue(packets.isEmpty() && !crate.isEmpty() && level.getBlockEntity(pos) == crate,
                         "Five minutes after landing, particle packets must stop while supplies and crate remain");
+                helper.assertTrue(!crate.getUpdatePacket().getTag().getBoolean("smoking"),
+                        "Five-minute expiry must stop the client hiss even when supplies remain");
                 for (int slot = 0; slot < crate.getContainerSize(); slot++) crate.removeItemNoUpdate(slot);
                 packets.clear();
                 AirdropCrateBlockEntity.serverTick(level, pos, crate.getBlockState(), crate);

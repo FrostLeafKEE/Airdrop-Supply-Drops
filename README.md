@@ -90,3 +90,5 @@ Created by **FrostLeafKEE**. Licensed under **LGPL-3.0-only**; see [LICENSE](LIC
 ## Signal tubes
 
 Single-use signal tubes request random or type-bound deliveries and spawn as rare bonuses in vanilla structure chests. They have no default recipe. See [signal tube settings and commands](SIGNAL-TUBE.md).
+
+Custom integrations can select independent crate and parachute assets using a namespaced `appearance` ID; see [MODEL-APPEARANCES.md](MODEL-APPEARANCES.md) (1.0.14+). Legacy mineral/food definitions remain compatible.

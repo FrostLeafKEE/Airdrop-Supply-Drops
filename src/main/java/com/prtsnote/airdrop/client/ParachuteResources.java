@@ -28,6 +28,7 @@ public final class ParachuteResources extends SimplePreparableReloadListener<Par
     private ParachuteResources() {}
 
     public Rig rig() { return current; }
+    public static Rig defaultRig() { return DEFAULT; }
 
     /** Forge can bake a separate missing-model instance, so reference equality is insufficient. */
     public static boolean isUsableCanopy(net.minecraft.client.resources.model.BakedModel model) {
@@ -44,10 +45,14 @@ public final class ParachuteResources extends SimplePreparableReloadListener<Par
 
     @Override
     protected Rig prepare(ResourceManager resources, ProfilerFiller profiler) {
-        try (var reader = resources.getResourceOrThrow(RIG).openAsReader()) {
+        return loadRig(resources, RIG);
+    }
+
+    public static Rig loadRig(ResourceManager resources, ResourceLocation path) {
+        try (var reader = resources.getResourceOrThrow(path).openAsReader()) {
             return parse(JsonParser.parseReader(reader).getAsJsonObject());
         } catch (Exception error) {
-            LogUtils.getLogger().warn("Invalid parachute rig {}; using the default rig", RIG, error);
+            LogUtils.getLogger().warn("Invalid parachute rig {}; using the default rig", path, error);
             return DEFAULT;
         }
     }

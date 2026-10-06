@@ -5,7 +5,6 @@ import com.prtsnote.airdrop.config.AirdropConfig;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.TagKey;
@@ -41,13 +40,10 @@ public final class AirdropRules {
         }
     }
 
-    /** Dimension tags contain level-stem IDs, never dimension-type IDs. */
+    /** Dimension tags contain dimension IDs, never dimension-type IDs. */
     public static boolean matchesDimension(ServerLevel level, String rule) {
         if (!rule.startsWith("#")) return rule.equals(level.dimension().location().toString());
-        var dimensions = level.registryAccess().registryOrThrow(Registries.LEVEL_STEM);
-        var key = ResourceKey.create(Registries.LEVEL_STEM, level.dimension().location());
-        var tag = TagKey.create(Registries.LEVEL_STEM, new ResourceLocation(rule.substring(1)));
-        return dimensions.getHolder(key).map(holder -> holder.is(tag)).orElse(false);
+        return AirdropDimensionTags.contains(level.getServer(), new ResourceLocation(rule.substring(1)), level.dimension().location());
     }
 
     public record Overrides(Integer minDistance, Integer maxDistance, Boolean allowLiquidLanding) {

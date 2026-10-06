@@ -11,16 +11,16 @@
     "seconds": 8.0,
     "channels": 1,
     "sample_rate": 44100,
-    "peak": 0.47177204489707947,
-    "rms": 0.10235041267308652,
-    "loop_boundary_step": 0.009071379899978638
+    "peak": 0.5192862153053284,
+    "rms": 0.10174798793570947,
+    "loop_boundary_step": 0.0077339112758636475
   },
   "parachute_open": {
     "seconds": 1.5,
     "channels": 1,
     "sample_rate": 44100,
-    "peak": 0.6775654554367065,
-    "rms": 0.06037210070298274,
+    "peak": 0.6579254865646362,
+    "rms": 0.09456626662143622,
     "loop_boundary_step": null
   },
   "crate_land": {
@@ -38,5 +38,13 @@
     "peak": 0.7012200355529785,
     "rms": 0.07392734547424752,
     "loop_boundary_step": null
+  },
+  "smoke_hiss": {
+    "seconds": 8.0,
+    "channels": 1,
+    "sample_rate": 44100,
+    "peak": 0.39917105436325073,
+    "rms": 0.0796281177012365,
+    "loop_boundary_step": 0.03326832503080368
   }
 }

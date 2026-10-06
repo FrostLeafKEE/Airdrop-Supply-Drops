@@ -43,5 +43,14 @@
         "preload": true
       }
     ]
+  },
+  "smoke_hiss": {
+    "subtitle": "subtitles.airdrop_supply_drops.smoke_hiss",
+    "sounds": [
+      {
+        "name": "airdrop_supply_drops:smoke_hiss",
+        "preload": true
+      }
+    ]
   }
 }

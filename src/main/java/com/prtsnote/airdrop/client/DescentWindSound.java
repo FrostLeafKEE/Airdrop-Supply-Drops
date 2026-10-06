@@ -25,6 +25,7 @@ public final class DescentWindSound extends AbstractTickableSoundInstance {
         if (client.getCameraEntity() == null) { volume = 0; return; }
         double distance = client.getCameraEntity().position().distanceTo(drop.position());
         float proximity = (float) Math.max(0, 1 - distance / 96);
-        volume = 0.45F * proximity * proximity * Math.min(1, drop.deploymentTicks() / 30F);
+        float opening = Math.max(0, Math.min(1, (drop.deploymentTicks() - 10) / 20F));
+        volume = 0.6F * proximity * proximity * opening;
     }
 }

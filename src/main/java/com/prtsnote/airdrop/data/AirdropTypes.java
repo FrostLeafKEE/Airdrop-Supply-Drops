@@ -15,7 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 public final class AirdropTypes extends SimpleJsonResourceReloadListener {
-    public record Type(ResourceLocation id, Component name, int weight, ResourceLocation lootTable, String appearance,
+    public record Type(ResourceLocation id, Component name, int weight, ResourceLocation lootTable, ResourceLocation appearance,
                        AirdropRules.Conditions conditions, AirdropRules.Overrides settings) {}
     private static Map<ResourceLocation, Type> types = Map.of();
     private static Map<ResourceLocation, Type> candidates = Map.of();
@@ -28,7 +28,10 @@ public final class AirdropTypes extends SimpleJsonResourceReloadListener {
     }
 
     public static Map<ResourceLocation, Type> all() { return types; }
-    public static void clear() { types = Map.of(); candidates = Map.of(); parseErrors = java.util.List.of(); diagnostics = java.util.List.of(); }
+    public static void clear() {
+        types = Map.of(); candidates = Map.of(); parseErrors = java.util.List.of(); diagnostics = java.util.List.of();
+        AirdropDimensionTags.clear();
+    }
 
     static int integer(JsonObject json, String name) {
         JsonElement value = json.get(name);
@@ -46,10 +49,7 @@ public final class AirdropTypes extends SimpleJsonResourceReloadListener {
         }
         int weight = integer(json, "weight");
         if (weight < 1 || weight > 1000000) throw new IllegalArgumentException("weight must be 1..1000000");
-        String appearance = GsonHelper.getAsString(json, "appearance");
-        if (!appearance.equals("mineral") && !appearance.equals("food")) {
-            throw new IllegalArgumentException("appearance must be mineral or food");
-        }
+        ResourceLocation appearance = AirdropAppearance.parse(GsonHelper.getAsString(json, "appearance"));
         Component name = Component.Serializer.fromJson(json.get("display_name"));
         if (name == null) throw new IllegalArgumentException("Missing display_name");
         return new Type(id, name, weight, new ResourceLocation(GsonHelper.getAsString(json, "loot_table")), appearance,
@@ -64,6 +64,7 @@ public final class AirdropTypes extends SimpleJsonResourceReloadListener {
     }
 
     public static java.util.List<String> validate(net.minecraft.server.MinecraftServer server) {
+        AirdropDimensionTags.refresh(server);
         var errors = new java.util.ArrayList<>(parseErrors);
         try {
             AirdropValidation.validateDimensions(server, com.prtsnote.airdrop.config.AirdropConfig.ALLOWED_DIMENSIONS.get(), "allowed_dimensions");

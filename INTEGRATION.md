@@ -48,7 +48,7 @@ Create `data/<namespace>/airdrop_types/<name>.json`. Its ID is `<namespace>:<nam
 | `display_name` | Yes | Minecraft text component; use `text` or a resource-pack language key via `translate`. |
 | `weight` | Yes | Integer 1–1,000,000; relative weight among eligible supply types. |
 | `loot_table` | Yes | Loot table resource ID. |
-| `appearance` | Yes | `mineral` for a blue label or `food` for an orange label; independent of loot. |
+| `appearance` | Yes | Namespaced client appearance ID, e.g. `yourpack:military`; legacy `mineral` and `food` remain aliases for the built-in IDs. Independent of loot. See [MODEL-APPEARANCES.md](MODEL-APPEARANCES.md). |
 | `required_mods` | No | Mod IDs that must all be present. Defaults to `[]`. |
 | `conditions` | No | Conditions for automatic scheduling. |
 | `settings` | No | Per-type overrides. Omitted values inherit global settings. |
@@ -71,6 +71,8 @@ At each interval the scheduler waits for the current aircraft to depart, selects
 ### Shared dimension groups (1.0.3+)
 
 Dimension tags group **dimension IDs**, not dimension types. Sharing a dimension type does not make another dimension a member. Both Minecraft branches use `data/<namespace>/tags/dimension/<name>.json`.
+
+From 1.0.14, these groups are resolved against the running server's dimensions at startup and after data reloads. They work when creating a fresh world without first running `/reload`; the new-world screen's provisional registry tags are not used for eligibility or validation. Vanilla may still log a missing `minecraft:overworld` tag reference while preparing that screen, before preset dimensions are created. Check `/airdrop_supply_drops validate` after entering the world for the actual airdrop validation result.
 
 For example, create `data/tacz_airdrop/tags/dimension/allowed_dimensions.json`:
 

@@ -50,6 +50,7 @@ public final class AirdropClientCheck {
                     }
                 }
                 checkParachute(client);
+                checkAppearances(client);
                 var signal = client.getItemRenderer().getModel(com.prtsnote.airdrop.world.item.SignalTubeItem.randomStack(), null, null, 0);
                 var signalQuads = signal.getQuads(null, null, RandomSource.create(0));
                 if (signal == client.getModelManager().getMissingModel() || signalQuads.size() != 78
@@ -64,7 +65,7 @@ public final class AirdropClientCheck {
                 LogUtils.getLogger().info("AIRDROP_MODEL_CHECK_STAGE_{}: preview {}", stage, path);
                 if (stage < 3) reloadNext(client);
                 else {
-                    LogUtils.getLogger().info("AIRDROP_CLIENT_CHECK_PASSED: crates, parachute, rectangular signal tube, 32 PBR resources, example override, invalid-file fallback and reload restoration");
+                    LogUtils.getLogger().info("AIRDROP_CLIENT_CHECK_PASSED: independent appearance IDs, landed model selection, falling crate rendering, independent canopy/rig, 32 PBR resources, invalid-file fallback and reload restoration");
                     finished = true;
                     client.stop();
                 }
@@ -125,6 +126,55 @@ public final class AirdropClientCheck {
         }
     }
 
+
+    private static void checkAppearances(Minecraft client) {
+        var resources = com.prtsnote.airdrop.client.AirdropAppearanceResources.INSTANCE;
+        var mineral = com.prtsnote.airdrop.data.AirdropAppearance.MINERAL;
+        var food = com.prtsnote.airdrop.data.AirdropAppearance.FOOD;
+        var military = new net.minecraft.resources.ResourceLocation("example_airdrops:military");
+        var medical = new net.minecraft.resources.ResourceLocation("example_airdrops:medical");
+        var state = ModBlocks.AIRDROP_CRATE.get().defaultBlockState();
+        var wrapper = client.getBlockRenderer().getBlockModel(state);
+        if (!(wrapper instanceof com.prtsnote.airdrop.client.AirdropCrateModel)) throw new IllegalStateException("Chunk crate model has no ID selector");
+        for (var id : java.util.List.of(mineral, food, military, medical)) {
+            var data = net.minecraftforge.client.model.data.ModelData.builder()
+                    .with(com.prtsnote.airdrop.data.AirdropAppearance.MODEL_PROPERTY, id).build();
+            var selected = wrapper.getQuads(state, null, RandomSource.create(0), data, null);
+            var crate = resources.crate(id);
+            if (selected.size() != crate.getQuads(null, null, RandomSource.create(0)).size()) {
+                throw new IllegalStateException("Landed and falling appearances disagree: " + id);
+            }
+            if (stage == 1 && (id.equals(military) || id.equals(medical))) {
+                int expected = id.equals(military) ? 6 : 12;
+                if (selected.size() != expected || !resources.isUsable(crate)) throw new IllegalStateException("Custom crate did not bake: " + id);
+                int panels = id.equals(military) ? 18 : 24;
+                var canopy = client.getModelManager().getModel(resources.canopy(id));
+                if (canopy.getQuads(null, null, RandomSource.create(0)).size() != panels) throw new IllegalStateException("Custom canopy not independent: " + id);
+                float width = id.equals(military) ? 2.8F : 4.8F;
+                if (Math.abs(resources.rig(id).openWidth() - width) > .001F) throw new IllegalStateException("Custom rig not independent: " + id);
+                if (!wrapper.getRenderTypes(state, RandomSource.create(0), data).contains(net.minecraft.client.renderer.RenderType.cutout())) {
+                    throw new IllegalStateException("Custom crate render layer not delegated");
+                }
+            } else if ((id.equals(military) || id.equals(medical)) && resources.definition(id) != null) {
+                throw new IllegalStateException("Removed or invalid appearance definition survived reload");
+            }
+        }
+        if (stage == 1 && Math.abs(resources.rig(mineral).openWidth() - 4.4F) > .001F) throw new IllegalStateException("Custom rig replaced default rig");
+        if (stage == 2) {
+            var missing = new net.minecraft.resources.ResourceLocation("example_airdrops:missing");
+            if (resources.crate(missing) != resources.crate(food)) throw new IllegalStateException("Missing crate model ignored requested food fallback");
+            if (!resources.canopy(missing).equals(com.prtsnote.airdrop.client.ParachuteResources.CANOPY)) throw new IllegalStateException("Missing canopy has no fallback");
+            if (resources.rig(missing).cords().size() != 4) throw new IllegalStateException("Missing canopy retained incompatible custom cords");
+        }
+        for (String bad : new String[]{"{\"format\":2,\"crate_model\":\"example:x\"}", "{\"format\":1,\"crate_model\":false}",
+                "{\"format\":1,\"crate_model\":\"example:x\",\"fallback\":\"example:cycle\"}"}) {
+            try {
+                com.prtsnote.airdrop.client.AirdropAppearanceResources.parse(com.google.gson.JsonParser.parseString(bad).getAsJsonObject());
+                throw new IllegalStateException("Malformed appearance accepted");
+            } catch (IllegalArgumentException expected) { /* correct */ }
+        }
+    }
+
     private static void reloadNext(Minecraft client) {
         var repository = client.getResourcePackRepository();
         repository.reload();
@@ -153,6 +203,8 @@ public final class AirdropClientCheck {
         @Override public void render(GuiGraphics graphics, int mouseX, int mouseY, float partial) {
             graphics.fillGradient(0, 0, width, height, 0xFF182536, 0xFF0A101A);
             graphics.drawCenteredString(font, "AIRDROP / CRATES + PARACHUTE + SIGNAL TUBE / STAGE " + stage, width / 2, 22, 0xFFFFFF);
+            var dummy = new com.prtsnote.airdrop.world.entity.FallingAirdrop(com.prtsnote.airdrop.registry.ModEntities.FALLING_AIRDROP.get(), null);
+            var renderer = (com.prtsnote.airdrop.client.FallingAirdropRenderer) minecraft.getEntityRenderDispatcher().getRenderer(dummy);
             for (int index = 0; index < 2; index++) {
                 boolean food = index == 1;
                 int x = width * (index * 2 + 1) / 10;
@@ -165,14 +217,15 @@ public final class AirdropClientCheck {
                 pose.mulPose(Axis.YP.rotationDegrees(-35));
                 pose.translate(-0.5, 0, -0.5);
                 Lighting.setupFor3DItems();
-                minecraft.getBlockRenderer().renderSingleBlock(ModBlocks.AIRDROP_CRATE.get().defaultBlockState()
+                if (stage == 1) renderer.renderCrate(new net.minecraft.resources.ResourceLocation(food ? "example_airdrops:medical" : "example_airdrops:military"),
+                        pose, graphics.bufferSource(), 15728880);
+                else minecraft.getBlockRenderer().renderSingleBlock(ModBlocks.AIRDROP_CRATE.get().defaultBlockState()
                         .setValue(AirdropCrateBlock.FOOD, food), pose, graphics.bufferSource(), 15728880, OverlayTexture.NO_OVERLAY);
                 graphics.flush();
                 pose.popPose();
-                graphics.drawCenteredString(font, food ? "FOOD" : "MINERALS", x, (int) (height * 0.68), food ? 0xFFAE57 : 0x79AFFF);
+                graphics.drawCenteredString(font, stage == 1 ? (food ? "CUSTOM B" : "CUSTOM A") : (food ? "FOOD" : "MINERALS"),
+                        x, (int) (height * 0.68), food ? 0xFFAE57 : 0x79AFFF);
             }
-            var dummy = new com.prtsnote.airdrop.world.entity.FallingAirdrop(com.prtsnote.airdrop.registry.ModEntities.FALLING_AIRDROP.get(), null);
-            var renderer = (com.prtsnote.airdrop.client.FallingAirdropRenderer) minecraft.getEntityRenderDispatcher().getRenderer(dummy);
             for (int index = 0; index < 2; index++) {
                 int x = width * (index * 2 + 5) / 10;
                 var pose = graphics.pose(); pose.pushPose();
@@ -180,7 +233,8 @@ public final class AirdropClientCheck {
                 float size = Math.min(width / 25F, height / 7F);
                 pose.scale(size, -size, size);
                 pose.mulPose(Axis.XP.rotationDegrees(25)); pose.mulPose(Axis.YP.rotationDegrees(-35));
-                renderer.renderParachute(index == 0 ? 1 : .25F, 18, pose, graphics.bufferSource(), 15728880);
+                renderer.renderParachute(stage == 1 ? new net.minecraft.resources.ResourceLocation(index == 0 ? "example_airdrops:military" : "example_airdrops:medical")
+                        : com.prtsnote.airdrop.data.AirdropAppearance.MINERAL, index == 0 ? 1 : .25F, 18, pose, graphics.bufferSource(), 15728880);
                 graphics.flush(); pose.popPose();
                 graphics.drawCenteredString(font, index == 0 ? "DEPLOYED" : "OPENING", x, (int) (height * .8), 0xDDDDDD);
             }

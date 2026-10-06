@@ -1,0 +1,7 @@
+{
+  "format": 1,
+  "crate_model": "airdrop_supply_drops:block/airdrop_crate_food",
+  "parachute_model": "airdrop_supply_drops:entity/parachute_canopy",
+  "parachute_rig": "airdrop_supply_drops:parachute/rigging.json",
+  "fallback": "food"
+}

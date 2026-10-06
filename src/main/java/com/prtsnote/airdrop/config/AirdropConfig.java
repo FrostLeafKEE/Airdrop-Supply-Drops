@@ -95,7 +95,7 @@ public final class AirdropConfig {
         if (event.getConfig().getSpec() == SPEC && SPEC.isLoaded()) {
             validateRelationships();
             var server = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
-            if (server != null) server.execute(() -> {
+            if (server != null && server.overworld() != null) server.execute(() -> {
                 for (String error : com.prtsnote.airdrop.data.AirdropTypes.validate(server)) {
                     com.mojang.logging.LogUtils.getLogger().error("Invalid airdrop configuration: {}", error);
                 }
